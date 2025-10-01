@@ -45,15 +45,18 @@ func GenerateJWT(userID int64) (string, error) {
 
 // ValidateJWT validates the jwt token.
 func ValidateJWT(tokenString string) (jwt.MapClaims, error) {
+
 	jwtSecret := []byte(os.Getenv("JWT_SECRET"))
 
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		// Don't forget to validate the alg is what you expect:
+
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {
+		
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		return jwtSecret, nil
 	})
+
 
 	if err != nil {
 		return nil, err
