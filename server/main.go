@@ -4,6 +4,8 @@ import (
 	"bighousevn/be/api"
 	"bighousevn/be/db"
 	"bighousevn/be/middleware"
+	"bighousevn/be/repository"
+	"bighousevn/be/services"
 	"bighousevn/be/utils"
 	"context"
 	"log"
@@ -13,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
@@ -40,30 +43,36 @@ func main() {
 	}
 	r := gin.Default()
 	r.SetTrustedProxies(nil)
+	r.Use(cors.Default())
+
+	// Initialize Repository, Service, and Controller
+	authRepo := repository.NewAuthRepository(db.DB)
+	authService := services.NewAuthService(authRepo)
+	authController := api.NewAuthController(authService)
 
 	v1 := r.Group("/api/v1")
 	{
 		auth := v1.Group("/auth")
 		{
-			auth.POST("/register", api.Register)
-			auth.POST("/login", api.Login)
-			auth.POST("/forgot-password", api.ForgotPassword)
-			auth.POST("/reset-password", api.ResetPassword)
-			auth.GET("/verify-email", api.VerifyEmail)
+			auth.POST("/register", authController.Register)
+			auth.POST("/login", authController.Login)
+			auth.POST("/forgot-password", authController.ForgotPassword)
+			auth.POST("/reset-password", authController.ResetPassword)
+			auth.GET("/verify-email", authController.VerifyEmail)
 		}
 
 		authenticated := v1.Group("/")
-		authenticated.Use(middleware.AuthMiddleware())
+		authenticated.Use(middleware.AuthMiddleware(authRepo))
 		{
-			authenticated.GET("/users/me", api.GetProfile)
-			authenticated.POST("/users/me/password", api.ChangePassword)
+			authenticated.GET("/users/me", authController.GetProfile)
+			authenticated.POST("/users/me/password", authController.ChangePassword)
 		}
-	}
-	v1.GET("/ping", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "pong",
+		v1.GET("/ping", func(c *gin.Context) {
+			c.JSON(200, gin.H{
+				"message": "pong",
+			})
 		})
-	})
+	}
 
 	// --- Graceful Shutdown Logic ---
 
