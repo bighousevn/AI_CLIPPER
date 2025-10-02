@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
@@ -42,6 +43,7 @@ func main() {
 	}
 	r := gin.Default()
 	r.SetTrustedProxies(nil)
+	r.Use(cors.Default())
 
 	// Initialize Repository, Service, and Controller
 	authRepo := repository.NewAuthRepository(db.DB)
