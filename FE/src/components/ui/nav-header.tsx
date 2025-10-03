@@ -6,6 +6,7 @@ import { Button } from "./button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "./dropdown-menu";
 import { Avatar, AvatarFallback } from "./avatar";
 import { signOut } from "next-auth/react";
+import { ModeToggle } from "../mode-toggle";
 
 const NavHeader = ({ credits, email }: { credits: number, email: string }) => {
     return <header className="bg-background sticky top-0 z-10 flex justify-center border-b">
@@ -32,6 +33,9 @@ const NavHeader = ({ credits, email }: { credits: number, email: string }) => {
                             Buy more
                         </Link>
                     </Button>
+                </div>
+                <div>
+                    <ModeToggle />
                 </div>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>

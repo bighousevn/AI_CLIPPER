@@ -19,6 +19,7 @@ import Link from "next/link";
 import { signupSchema, type SignupFormValues } from "~/schemas/auth";
 import { useRouter } from "next/navigation";
 import axiosClient from "~/lib/axiosClient";
+import { cookies } from "next/headers";
 
 export function SignupForm({
     className,
@@ -48,8 +49,9 @@ export function SignupForm({
                 password: data.password,
             });
 
-            // 3. Lưu token vào localStorage
+            // 3. Lưu token vào localStorage và cookie
             localStorage.setItem("accessToken", loginRes.data.token);
+
             // 4. Redirect sang dashboard
             router.push("/dashboard");
         } catch (err: any) {

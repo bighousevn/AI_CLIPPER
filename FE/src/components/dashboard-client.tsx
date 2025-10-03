@@ -11,7 +11,6 @@ import {
     CardHeader,
     CardTitle,
 } from "./ui/card";
-import Dropzone from 'shadcn-dropzone';
 import { Loader2, UploadCloud } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -26,6 +25,7 @@ import {
 import { Badge } from "./ui/badge";
 import { useRouter } from "next/navigation";
 import type { DropzoneState } from "react-dropzone";
+import { Dropzone, DropzoneContent, DropzoneEmptyState } from "./ui/shadcn-io/dropzone";
 
 export function DashboardClient({
     uploadedFiles,
@@ -56,49 +56,6 @@ export function DashboardClient({
         setFiles(acceptedFiles);
     };
 
-    // const handleUpload = async () => {
-    //     if (files.length === 0) return;
-
-    //     const file = files[0]!;
-    //     setUploading(true);
-
-    //     try {
-    //         const { success, signedUrl, uploadedFileId } = await generateUploadUrl({
-    //             filename: file.name,
-    //             contentType: file.type,
-    //         });
-
-    //         if (!success) throw new Error("Failed to get upload URL");
-
-    //         const uploadResponse = await fetch(signedUrl, {
-    //             method: "PUT",
-    //             body: file,
-    //             headers: {
-    //                 "Content-Type": file.type,
-    //             },
-    //         });
-
-    //         if (!uploadResponse.ok)
-    //             throw new Error(`Upload filed with status: ${uploadResponse.status}`);
-
-    //         await processVideo(uploadedFileId);
-
-    //         setFiles([]);
-
-    //         toast.success("Video uploaded successfully", {
-    //             description:
-    //                 "Your video has been scheduled for processing. Check the status below.",
-    //             duration: 5000,
-    //         });
-    //     } catch (error) {
-    //         toast.error("Upload failed", {
-    //             description:
-    //                 "There was a problem uploading your video. Please try again.",
-    //         });
-    //     } finally {
-    //         setUploading(false);
-    //     }
-    // };
 
     return (
         <div className="mx-auto flex max-w-5xl flex-col space-y-6 px-4 py-8">
@@ -132,7 +89,7 @@ export function DashboardClient({
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <Dropzone
+                            {/* <Dropzone
                                 onDrop={handleDrop}
                                 accept={{ "video/mp4": [".mp4"] }}
                                 maxSize={500 * 1024 * 1024}
@@ -158,6 +115,19 @@ export function DashboardClient({
                                         </div>
                                     </>
                                 )}
+                            </Dropzone> */}
+                            <Dropzone
+                                accept={{ "video/mp4": [".mp4"] }}
+                                disabled={uploading}
+                                maxFiles={1}
+                                maxSize={500 * 1024 * 1024}
+                                minSize={1024}
+                                onDrop={handleDrop}
+                                onError={console.error}
+                                src={files}
+                            >
+                                <DropzoneEmptyState />
+                                <DropzoneContent />
                             </Dropzone>
                             <div className="flex items-start justify-between">
                                 <div>
