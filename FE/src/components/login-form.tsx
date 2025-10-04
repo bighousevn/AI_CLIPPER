@@ -11,6 +11,7 @@ import Link from "next/link";
 import { loginSchema, signupSchema, type LoginFormValues, type SignupFormValues } from "~/schemas/auth";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import axiosClient from "~/lib/axiosClient";
 
 export function LoginForm({
     className,
@@ -29,23 +30,18 @@ export function LoginForm({
             setSubmitting(true);
             setError(null);
 
-            const signInResult = await signIn("credentials", {
-                email: data.email,
-                password: data.password,
-                redirect: false,
-            });
-
-            if (signInResult?.error) {
-                setError("Invalid email or password.");
-            } else {
-                router.push("/dashboard");
-            }
-        } catch (error) {
-            setError("An unexpected error occurred");
+            // Gọi API login custom
+            const res = await axiosClient.post("/auth/login", data);
+            // Lưu token vào localStorage
+            localStorage.setItem("accessToken", res.data.token);
+            // Redirect
+            router.push("/dashboard");
+        } catch (error: any) {
+            setError(error.response?.data?.message || "Invalid email or password.");
         } finally {
             setSubmitting(false);
         }
-    }
+    };
 
     return (
         <div className={cn("flex flex-col gap-6", className)} {...props}>
