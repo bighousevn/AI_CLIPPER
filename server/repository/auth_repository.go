@@ -13,6 +13,7 @@ type AuthRepository interface {
 	GetUserByID(id uint) (*models.User, error)
 	GetUserByPasswordResetToken(token string) (*models.User, error)
 	GetUserByEmailVerificationToken(token string) (*models.User, error)
+	GetUserByRefreshToken(token string) (*models.User, error)
 }
 
 type authRepository struct {
@@ -49,6 +50,14 @@ func (r *authRepository) GetUserByPasswordResetToken(token string) (*models.User
 func (r *authRepository) GetUserByEmailVerificationToken(token string) (*models.User, error) {
 	var user models.User
 	if err := r.db.Where("email_verification_token = ?", token).First(&user).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *authRepository) GetUserByRefreshToken(token string) (*models.User, error) {
+	var user models.User
+	if err := r.db.Where("refresh_token = ?", token).First(&user).Error; err != nil {
 		return nil, err
 	}
 	return &user, nil

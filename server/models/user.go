@@ -12,6 +12,9 @@ type User struct {
 	Username                 string         `json:"username" gorm:"unique"`
 	Email                    string         `json:"email" gorm:"unique"`
 	Password                 string         `json:"-" gorm:"column:password_hash"`
+	Credits                  int            `json:"credits" gorm:"default:10"`
+	StripeCustomerID         *string        `json:"stripe_customer_id" gorm:"unique"`
+	RefreshToken             *string        `json:"-" gorm:"unique"`
 	PasswordResetToken       *string        `json:"-" gorm:"uniqueIndex"`
 	PasswordResetExpires     *time.Time     `json:"-"`
 	IsEmailVerified          bool           `json:"is_email_verified" gorm:"default:false"`
@@ -43,7 +46,7 @@ type ResetPasswordRequest struct {
 }
 
 type VerifyEmailRequest struct {
-	Token string `json:"token" binding:"required"`
+	Token string `form:"token" binding:"required"`
 }
 
 type ChangePasswordRequest struct {
