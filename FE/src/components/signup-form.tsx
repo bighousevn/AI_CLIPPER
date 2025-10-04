@@ -12,15 +12,13 @@ import {
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Button } from "./ui/button";
-import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import Link from "next/link";
 import { signupSchema, type SignupFormValues } from "~/schemas/auth";
-import { signUp } from "~/actions/auth";
-import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import axiosClient from "~/lib/axiosClient";
 
 export function SignupForm({
     className,
@@ -41,27 +39,21 @@ export function SignupForm({
             setIsSubmitting(true);
             setError(null);
 
-            const result = await signUp(data);
-            if (!result.success) {
-                setError(result.error ?? "An error occurred during signup");
-                return;
-            }
+            // 1. Gọi API register
+            await axiosClient.post("/auth/register", data);
 
-            const signUpResult = await signIn("credentials", {
+            // 2. Sau khi register thành công, gọi luôn API login
+            const loginRes = await axiosClient.post("/auth/login", {
                 email: data.email,
                 password: data.password,
-                redirect: false,
             });
 
-            if (signUpResult?.error) {
-                setError(
-                    "Account created but couldn't sign in automatically. Please try again.",
-                );
-            } else {
-                router.push("/dashboard");
-            }
-        } catch (error) {
-            setError("An unexpected error occurred");
+            // 3. Lưu token vào localStorage
+            localStorage.setItem("accessToken", loginRes.data.token);
+            // 4. Redirect sang dashboard
+            router.push("/dashboard");
+        } catch (err: any) {
+            setError(err.response?.data?.message || "Signup failed");
         } finally {
             setIsSubmitting(false);
         }
@@ -79,6 +71,18 @@ export function SignupForm({
                 <CardContent>
                     <form onSubmit={handleSubmit(onSubmit)}>
                         <div className="flex flex-col gap-6">
+                            <div className="grid gap-2">
+                                <Label htmlFor="email">User Name</Label>
+                                <Input
+                                    id="username"
+                                    type="text"
+                                    required
+                                    {...register("username")}
+                                />
+                                {errors.email && (
+                                    <p className="text-sm text-red-500">{errors.email.message}</p>
+                                )}
+                            </div>
                             <div className="grid gap-2">
                                 <Label htmlFor="email">Email</Label>
                                 <Input

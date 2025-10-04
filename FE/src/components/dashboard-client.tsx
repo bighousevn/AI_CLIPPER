@@ -56,49 +56,49 @@ export function DashboardClient({
         setFiles(acceptedFiles);
     };
 
-    //   const handleUpload = async () => {
+    // const handleUpload = async () => {
     //     if (files.length === 0) return;
 
     //     const file = files[0]!;
     //     setUploading(true);
 
     //     try {
-    //       const { success, signedUrl, uploadedFileId } = await generateUploadUrl({
-    //         filename: file.name,
-    //         contentType: file.type,
-    //       });
+    //         const { success, signedUrl, uploadedFileId } = await generateUploadUrl({
+    //             filename: file.name,
+    //             contentType: file.type,
+    //         });
 
-    //       if (!success) throw new Error("Failed to get upload URL");
+    //         if (!success) throw new Error("Failed to get upload URL");
 
-    //       const uploadResponse = await fetch(signedUrl, {
-    //         method: "PUT",
-    //         body: file,
-    //         headers: {
-    //           "Content-Type": file.type,
-    //         },
-    //       });
+    //         const uploadResponse = await fetch(signedUrl, {
+    //             method: "PUT",
+    //             body: file,
+    //             headers: {
+    //                 "Content-Type": file.type,
+    //             },
+    //         });
 
-    //       if (!uploadResponse.ok)
-    //         throw new Error(`Upload filed with status: ${uploadResponse.status}`);
+    //         if (!uploadResponse.ok)
+    //             throw new Error(`Upload filed with status: ${uploadResponse.status}`);
 
-    //       await processVideo(uploadedFileId);
+    //         await processVideo(uploadedFileId);
 
-    //       setFiles([]);
+    //         setFiles([]);
 
-    //       toast.success("Video uploaded successfully", {
-    //         description:
-    //           "Your video has been scheduled for processing. Check the status below.",
-    //         duration: 5000,
-    //       });
+    //         toast.success("Video uploaded successfully", {
+    //             description:
+    //                 "Your video has been scheduled for processing. Check the status below.",
+    //             duration: 5000,
+    //         });
     //     } catch (error) {
-    //       toast.error("Upload failed", {
-    //         description:
-    //           "There was a problem uploading your video. Please try again.",
-    //       });
+    //         toast.error("Upload failed", {
+    //             description:
+    //                 "There was a problem uploading your video. Please try again.",
+    //         });
     //     } finally {
-    //       setUploading(false);
+    //         setUploading(false);
     //     }
-    //   };
+    // };
 
     return (
         <div className="mx-auto flex max-w-5xl flex-col space-y-6 px-4 py-8">
@@ -159,6 +159,19 @@ export function DashboardClient({
                                     </>
                                 )}
                             </Dropzone>
+                            <div className="flex items-start justify-between">
+                                <div>
+                                    {files.length > 0 && (
+                                        <div className="space-u-1 text-sm">
+                                            <p className="font-medium">selected file</p>
+                                        </div>
+                                    )}
+                                </div>
+                                <Button>
+                                    {uploading ? <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Uploading</> : "Upload"}
+                                </Button>
+                            </div>
                         </CardContent>
 
                     </Card>
