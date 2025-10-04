@@ -32,8 +32,9 @@ export function LoginForm({
 
             // Gọi API login custom
             const res = await axiosClient.post("/auth/login", data);
-            // Lưu token vào localStorage
+            // Lưu token vào localStorage và cookie
             localStorage.setItem("accessToken", res.data.token);
+
             // Redirect
             router.push("/dashboard");
         } catch (error: any) {
