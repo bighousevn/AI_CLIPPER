@@ -56,6 +56,7 @@ func main() {
 		{
 			auth.POST("/register", authController.Register)
 			auth.POST("/login", authController.Login)
+			auth.POST("/refresh-token", authController.RefreshToken)
 			auth.POST("/forgot-password", authController.ForgotPassword)
 			auth.POST("/reset-password", authController.ResetPassword)
 			auth.GET("/verify-email", authController.VerifyEmail)
