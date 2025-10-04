@@ -1,6 +1,8 @@
 package db
 
 import (
+	"bighousevn/be/models"
+
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -14,6 +16,11 @@ func InitDB(dataSourceName string) error {
 		PrepareStmt: true,
 	})
 	if err != nil {
+		return err
+	}
+
+	// Auto-migrate the User model
+	if err = DB.AutoMigrate(&models.User{}); err != nil {
 		return err
 	}
 
