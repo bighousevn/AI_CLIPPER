@@ -137,10 +137,13 @@ func (ctrl *AuthController) GetProfile(c *gin.Context) {
 		return
 	}
 
+	// Return user profile without sensitive information
 	c.JSON(http.StatusOK, gin.H{
-		"id":       userModel.ID,
-		"username": userModel.Username,
-		"email":    userModel.Email,
+		"id":                 userModel.ID,
+		"username":           userModel.Username,
+		"email":              userModel.Email,
+		"credits":            userModel.Credits,
+		"stripe_customer_id": userModel.StripeCustomerID,
 	})
 }
 
