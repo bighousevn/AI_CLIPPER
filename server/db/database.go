@@ -2,7 +2,9 @@ package db
 
 import (
 	"bighousevn/be/models"
+	"errors"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -20,8 +22,15 @@ func InitDB(dataSourceName string) error {
 	}
 
 	// Auto-migrate the User model
-	if err = DB.AutoMigrate(&models.User{}); err != nil {
-		return err
+	err = DB.AutoMigrate(&models.User{})
+	if err != nil {
+		var pgErr *pgconn.PgError
+		// Check if the error is a PostgreSQL error with code 42P07 (relation already exists).
+		// If it is, we can safely ignore it.
+		// Otherwise, it's a different error and we should return it.
+		if !errors.As(err, &pgErr) || pgErr.Code != "42P07" {
+			return err
+		}
 	}
 
 	return nil
