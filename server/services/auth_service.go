@@ -15,6 +15,7 @@ import (
 type AuthService interface {
 	Register(req *models.RegisterRequest) (*models.User, error)
 	Login(req *models.LoginRequest) (string, string, error)
+	Logout(user *models.User) (string, error)
 	ForgotPassword(req *models.ForgotPasswordRequest) error
 	ResetPassword(req *models.ResetPasswordRequest) error
 	VerifyEmail(req *models.VerifyEmailRequest) error
@@ -28,6 +29,14 @@ type authService struct {
 
 func NewAuthService(authRepo repository.AuthRepository) AuthService {
 	return &authService{authRepo: authRepo}
+}
+
+func (s *authService) Logout(user *models.User) (string, error) {
+	user.RefreshToken = nil
+	if err := s.authRepo.UpdateUser(user); err != nil {
+		return "", errors.New("failed to logout")
+	}
+	return "logout successful", nil
 }
 
 func (s *authService) Register(req *models.RegisterRequest) (*models.User, error) {
@@ -78,7 +87,7 @@ func (s *authService) Register(req *models.RegisterRequest) (*models.User, error
 		user = newUser
 	}
 
-	verificationLink := fmt.Sprintf("http://localhost:3000/api/v1/auth/verify-email?token=%s", verificationToken)
+	verificationLink := fmt.Sprintf("http://localhost:8080/api/v1/auth/verify-email?token=%s", verificationToken)
 	emailBody := fmt.Sprintf("<h1>Welcome!</h1><p>Please verify your email by clicking this link: <a href=\"%s\">%s</a></p>", verificationLink, verificationLink)
 	go func() {
 		if err := utils.SendEmail(user.Email, "Verify Your Email", emailBody); err != nil {
