@@ -7,8 +7,20 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Avatar, AvatarFallback } from "./avatar";
 import { signOut } from "next-auth/react";
 import { ModeToggle } from "../mode-toggle";
+import { useAuth } from "~/hooks/useAuth";
+import { Loader2 } from "lucide-react";
 
-const NavHeader = ({ credits, email }: { credits: number, email: string }) => {
+const NavHeader = () => {
+    const { user, loading } = useAuth();
+
+    if (loading)
+        return (
+            <div className="flex justify-center items-center h-14">
+                <Loader2 className="animate-spin h-5 w-5 text-muted-foreground" />
+            </div>
+        );
+
+    if (!user) return null;
     return <header className="bg-background sticky top-0 z-10 flex justify-center border-b">
         <div className="container flex items-center justify-between px-4 py-2">
             <Link href="/dashboard" className="flex items-center">
@@ -22,7 +34,7 @@ const NavHeader = ({ credits, email }: { credits: number, email: string }) => {
             <div className="flex items.center gap-4">
                 <div className="flex items-center gap-2">
                     <Badge variant={"secondary"} className="h-8 px-3 py-1.5 text-xs font-medium">
-                        {credits} credits
+                        {user.credits} credits
                     </Badge>
                     <Button
                         variant="outline"
@@ -44,13 +56,13 @@ const NavHeader = ({ credits, email }: { credits: number, email: string }) => {
                             className="relative h-8 w-8 rounded-full p-0"
                         >
                             <Avatar>
-                                <AvatarFallback>{email.charAt(0).toUpperCase()}</AvatarFallback>
+                                <AvatarFallback>{user.username.charAt(0).toUpperCase()}</AvatarFallback>
                             </Avatar>
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                         <DropdownMenuLabel>
-                            <p className="text-muted-foreground text-xs">{email}</p>
+                            <p className="text-muted-foreground text-xs">{user.username}</p>
                         </DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem asChild>
