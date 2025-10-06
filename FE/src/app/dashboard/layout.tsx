@@ -13,12 +13,11 @@ interface User {
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
 
 
-    let user: User = { email: "Duc", credits: 10 };
 
 
     return (
         <div className="flex min-h-screen flex-col ">
-            <NavHeader credits={user.credits} email={user.email} />
+            <NavHeader />
             <main className="flex-1 container py-6 mx-auto ">
                 {children}
             </main>

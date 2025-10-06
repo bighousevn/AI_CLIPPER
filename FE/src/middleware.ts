@@ -2,24 +2,21 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 export function middleware(request: NextRequest) {
-    const token = request.cookies.get("access_token")?.value;
-
     const { pathname } = request.nextUrl;
 
-    // // Nếu đang login mà vào /login hoặc /register → redirect dashboard
-    // if (token && (pathname.startsWith("/login") || pathname.startsWith("/register"))) {
-    //     return NextResponse.redirect(new URL("/dashboard", request.url));
-    // }
+    // Refresh token được lưu trong cookie (HTTP-only)
+    const refreshToken = request.cookies.get("refresh_token")?.value;
 
-    // // Nếu chưa login mà vào /dashboard → redirect login
-    // if (!token && pathname.startsWith("/dashboard")) {
-    //     return NextResponse.redirect(new URL("/login", request.url));
-    // }
+    // Nếu đã login mà cố truy cập /login hoặc /register → redirect dashboard
+    if (refreshToken && ["/login", "/register"].includes(pathname)) {
+        return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
 
+    // Ngược lại, cho phép đi tiếp
     return NextResponse.next();
 }
 
-// Áp dụng cho các route cụ thể
+// Áp dụng cho các route cần kiểm tra
 export const config = {
-    matcher: ["/login", "/register", "/dashboard/:path*"],
+    matcher: ["/login", "/register"],
 };

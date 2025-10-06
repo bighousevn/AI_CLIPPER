@@ -1,3 +1,4 @@
+// ~/lib/axiosClient.ts
 import axios from "axios";
 
 const axiosClient = axios.create({
@@ -5,16 +6,18 @@ const axiosClient = axios.create({
     headers: {
         "Content-Type": "application/json",
     },
+    withCredentials: true, // gửi cookie (refresh_token)
 });
 
-// Thêm token vào request
+// 🎯 Thêm accessToken vào request
 axiosClient.interceptors.request.use(
     (config) => {
-        const token = typeof window !== "undefined"
-            ? localStorage.getItem("accessToken")
-            : null;
+        const token =
+            typeof window !== "undefined"
+                ? localStorage.getItem("accessToken")
+                : null;
 
-        // Không gắn token cho các endpoint login, register, refresh
+        // Không gắn token cho các endpoint auth công khai
         const isAuthEndpoint =
             config.url?.includes("/auth/login") ||
             config.url?.includes("/auth/register") ||
@@ -29,37 +32,37 @@ axiosClient.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
-// Xử lý response + refresh token
+// 🎯 Refresh token tự động khi access token hết hạn
 axiosClient.interceptors.response.use(
     (response) => response,
     async (error) => {
         const originalRequest = error.config;
 
-        // Nếu API trả về 401 (Unauthorized)
+        // Nếu gặp lỗi 401 (Unauthorized) và chưa retry
         if (error.response?.status === 401 && !originalRequest._retry) {
             originalRequest._retry = true;
 
             try {
-                const refreshToken = localStorage.getItem("refreshToken");
-                if (!refreshToken) throw new Error("No refresh token");
-
-                // Gọi API refresh token
+                // 👉 Gọi refresh token API (cookie được gửi kèm nhờ withCredentials)
                 const res = await axios.post(
                     `${process.env.NEXT_PUBLIC_API_URL}/auth/refresh-token`,
-                    { refreshToken }
+                    {},
+                    { withCredentials: true } // cookie refresh_token được gửi tự động
                 );
 
-                const newAccessToken = res.data.accessToken;
+                const newAccessToken = res.data.access_token;
+
+                // Lưu lại access token mới
                 localStorage.setItem("accessToken", newAccessToken);
 
-                // Gắn lại token mới và gửi lại request cũ
+                // Gắn lại token vào request gốc và thử gửi lại
                 originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
                 return axiosClient(originalRequest);
             } catch (err) {
-                console.error("Refresh token failed", err);
+                console.error("Refresh token failed:", err);
+                // Nếu refresh token hết hạn hoặc lỗi -> xoá token + logout
                 localStorage.removeItem("accessToken");
-                localStorage.removeItem("refreshToken");
-                window.location.href = "/login"; // redirect về login
+                window.location.href = "/login";
             }
         }
 
