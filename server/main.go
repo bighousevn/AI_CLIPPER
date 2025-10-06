@@ -43,7 +43,18 @@ func main() {
 	}
 	r := gin.Default()
 	r.SetTrustedProxies(nil)
-	r.Use(cors.Default())
+	// CORS configuration
+	feURL := os.Getenv("FE_URL")
+	if feURL == "" {
+		feURL = "http://localhost:3000" // Default for local development
+	}
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{feURL},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Authorization"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
 
 	// Initialize Repository, Service, and Controller
 	authRepo := repository.NewAuthRepository(db.DB)
@@ -100,7 +111,7 @@ func main() {
 	// Close the database connection FIRST
 	db.CloseDB()
 	log.Println("Database connection closed.")
-	
+
 	// Wait a bit to ensure DB cleanup is complete
 	time.Sleep(2 * time.Second)
 
