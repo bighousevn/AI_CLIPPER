@@ -15,7 +15,7 @@ import (
 type AuthService interface {
 	Register(req *models.RegisterRequest) (*models.User, error)
 	Login(req *models.LoginRequest) (string, string, error)
-	Logout(user *models.User) (string, error)
+	Logout(refreshToken string) error
 	ForgotPassword(req *models.ForgotPasswordRequest) error
 	ResetPassword(req *models.ResetPasswordRequest) error
 	VerifyEmail(req *models.VerifyEmailRequest) error
@@ -31,12 +31,27 @@ func NewAuthService(authRepo repository.AuthRepository) AuthService {
 	return &authService{authRepo: authRepo}
 }
 
-func (s *authService) Logout(user *models.User) (string, error) {
+func (s *authService) Logout(refreshToken string) error {
+	claims, err := utils.ValidateRefreshToken(refreshToken)
+	if err != nil {
+		return errors.New("invalid refresh token")
+	}
+
+	userID, ok := claims["user_id"].(float64)
+	if !ok {
+		return errors.New("invalid user id in refresh token")
+	}
+
+	user, err := s.authRepo.GetUserByID(uint(userID))
+	if err != nil {
+		return errors.New("user not found")
+	}
+
 	user.RefreshToken = nil
 	if err := s.authRepo.UpdateUser(user); err != nil {
-		return "", errors.New("failed to logout")
+		return errors.New("failed to logout")
 	}
-	return "logout successful", nil
+	return nil
 }
 
 func (s *authService) Register(req *models.RegisterRequest) (*models.User, error) {

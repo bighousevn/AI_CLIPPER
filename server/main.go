@@ -71,6 +71,7 @@ func main() {
 			auth.POST("/forgot-password", authController.ForgotPassword)
 			auth.POST("/reset-password", authController.ResetPassword)
 			auth.GET("/verify-email", authController.VerifyEmail)
+			auth.GET("/logout", authController.Logout)
 		}
 
 		authenticated := v1.Group("/")
@@ -78,7 +79,7 @@ func main() {
 		{
 			authenticated.GET("/users/me", authController.GetProfile)
 			authenticated.POST("/users/me/password", authController.ChangePassword)
-			authenticated.GET("/auth/logout", authController.Logout)
+
 		}
 		v1.GET("/ping", func(c *gin.Context) {
 			c.JSON(200, gin.H{

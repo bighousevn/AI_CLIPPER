@@ -177,20 +177,13 @@ func (ctrl *AuthController) ChangePassword(c *gin.Context) {
 }
 
 func (ctrl *AuthController) Logout(c *gin.Context) {
-	userCtx, exists := c.Get("user")
-	if !exists {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "User not found in context"})
-		return
-	}
-
-	user, ok := userCtx.(*models.User)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not assert user type from context"})
-		return
-	}
-
-	_, err := ctrl.authService.Logout(user)
+	refreshToken, err := c.Cookie("refresh_token")
 	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Refresh token not found"})
+		return
+	}
+
+	if err := ctrl.authService.Logout(refreshToken); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
