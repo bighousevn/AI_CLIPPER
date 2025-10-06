@@ -19,7 +19,7 @@ import Link from "next/link";
 import { signupSchema, type SignupFormValues } from "~/schemas/auth";
 import { useRouter } from "next/navigation";
 import axiosClient from "~/lib/axiosClient";
-import { cookies } from "next/headers";
+import { signup } from "~/services/authService";
 
 export function SignupForm({
     className,
@@ -40,20 +40,10 @@ export function SignupForm({
             setIsSubmitting(true);
             setError(null);
 
-            // 1. Gọi API register
-            await axiosClient.post("/auth/register", data);
+            const res = await signup(data);
 
-            // 2. Sau khi register thành công, gọi luôn API login
-            const loginRes = await axiosClient.post("/auth/login", {
-                email: data.email,
-                password: data.password,
-            });
-
-            // 3. Lưu token vào localStorage và cookie
-            localStorage.setItem("accessToken", loginRes.data.token);
-
-            // 4. Redirect sang dashboard
-            router.push("/dashboard");
+            // Redirect
+            router.push("/verify");
         } catch (err: any) {
             setError(err.response?.data?.message || "Signup failed");
         } finally {

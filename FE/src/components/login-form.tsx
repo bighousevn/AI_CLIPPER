@@ -12,6 +12,7 @@ import { loginSchema, signupSchema, type LoginFormValues, type SignupFormValues 
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import axiosClient from "~/lib/axiosClient";
+import { login } from "~/services/authService";
 
 export function LoginForm({
     className,
@@ -29,11 +30,8 @@ export function LoginForm({
         try {
             setSubmitting(true);
             setError(null);
+            const res = await login(data);
 
-            // Gọi API login custom
-            const res = await axiosClient.post("/auth/login", data);
-            // Lưu token vào localStorage và cookie
-            localStorage.setItem("accessToken", res.data.token);
 
             // Redirect
             router.push("/dashboard");
@@ -73,6 +71,7 @@ export function LoginForm({
 
                                 </div>
                                 <Input id="password" type="password" required
+                                    autoComplete="current-password"
                                     {...register("password")} />
                                 {errors.password && <p className="text-red-500">{errors.password.message}</p>}
                             </div>

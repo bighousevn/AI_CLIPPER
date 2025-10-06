@@ -78,7 +78,7 @@ func (s *authService) Register(req *models.RegisterRequest) (*models.User, error
 		user = newUser
 	}
 
-	verificationLink := fmt.Sprintf("http://localhost:8080/api/v1/auth/verify-email?token=%s", verificationToken)
+	verificationLink := fmt.Sprintf("http://localhost:3000/verify?token=%s", verificationToken)
 	emailBody := fmt.Sprintf("<h1>Welcome!</h1><p>Please verify your email by clicking this link: <a href=\"%s\">%s</a></p>", verificationLink, verificationLink)
 	go func() {
 		if err := utils.SendEmail(user.Email, "Verify Your Email", emailBody); err != nil {
