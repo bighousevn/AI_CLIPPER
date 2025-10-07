@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"bighousevn/be/models"
+	"bighousevn/be/internal/models"
 
 	"gorm.io/gorm"
 )

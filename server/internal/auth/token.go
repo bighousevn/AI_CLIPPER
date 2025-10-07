@@ -1,4 +1,4 @@
-package utils
+package auth
 
 import (
 	"crypto/rand"
@@ -52,7 +52,7 @@ func GenerateRefreshToken(userID int64) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id": userID,
 		"exp":     time.Now().Add(time.Hour * 24 * 7).Unix(), // Token expires in 7 days
-		"iat":     time.Now().Unix(),                        // Issued at
+		"iat":     time.Now().Unix(),                         // Issued at
 	}
 
 	// Create a new token object, specifying signing method and the claims
@@ -72,15 +72,13 @@ func ValidateJWT(tokenString string) (jwt.MapClaims, error) {
 
 	jwtSecret := []byte(os.Getenv("JWT_SECRET"))
 
-
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {
-		
+
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		return jwtSecret, nil
 	})
-
 
 	if err != nil {
 		return nil, err

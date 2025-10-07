@@ -1,4 +1,4 @@
-package utils
+package validator
 
 import (
 	"fmt"
@@ -22,7 +22,6 @@ func HandleValidationErrors(err error) gin.H {
 			rawPath := strings.TrimPrefix(e.Namespace(), root+".")
 
 			parts := strings.Split(rawPath, ".")
-
 
 			fieldPath := strings.Join(parts, ".")
 
