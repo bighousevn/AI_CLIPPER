@@ -9,6 +9,7 @@ import { signOut } from "next-auth/react";
 import { ModeToggle } from "../mode-toggle";
 import { useAuth } from "~/hooks/useAuth";
 import { Loader2 } from "lucide-react";
+import { logout } from "~/services/authService";
 
 const NavHeader = () => {
     const { user, loading } = useAuth();
@@ -70,7 +71,7 @@ const NavHeader = () => {
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
-                            onClick={() => signOut({ redirectTo: "/login" })}
+                            onClick={() => logout()}
                             className="text-destructive cursor-pointer"
                         >
                             Sign out
