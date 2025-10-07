@@ -42,13 +42,18 @@ export const signup = async (data: SignupFormValues) => {
  */
 export const logout = async () => {
     try {
-        await axiosClient.post("/auth/logout");
+        await axiosClient.get("/auth/logout", {});
     } catch (err) {
         console.error("Logout failed:", err);
     } finally {
         localStorage.removeItem("accessToken");
+        delete axiosClient.defaults.headers.common["Authorization"];
+        // 🔥 Reload lại toàn bộ context để xoá sạch cache React, state, hook
+        window.location.replace("/login");
     }
 };
+
+
 
 /**
  * Refresh token từ cookie (HTTP-only)
