@@ -1,9 +1,10 @@
-package api
+package handler
 
 import (
-	"bighousevn/be/models"
-	"bighousevn/be/services"
-	"bighousevn/be/utils"
+	"bighousevn/be/internal/models"
+	services "bighousevn/be/internal/service"
+	"bighousevn/be/internal/validator"
+
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -21,7 +22,7 @@ func (ctrl *AuthController) Register(c *gin.Context) {
 	var req models.RegisterRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		errorResponse := utils.HandleValidationErrors(err)
+		errorResponse := validator.HandleValidationErrors(err)
 		c.JSON(http.StatusBadRequest, errorResponse)
 		return
 	}
@@ -39,7 +40,7 @@ func (ctrl *AuthController) Login(c *gin.Context) {
 	var req models.LoginRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		errorResponse := utils.HandleValidationErrors(err)
+		errorResponse := validator.HandleValidationErrors(err)
 		c.JSON(http.StatusBadRequest, errorResponse)
 		return
 	}
@@ -77,7 +78,7 @@ func (ctrl *AuthController) ForgotPassword(c *gin.Context) {
 	var req models.ForgotPasswordRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		errorResponse := utils.HandleValidationErrors(err)
+		errorResponse := validator.HandleValidationErrors(err)
 		c.JSON(http.StatusBadRequest, errorResponse)
 		return
 	}
@@ -94,7 +95,7 @@ func (ctrl *AuthController) ResetPassword(c *gin.Context) {
 	var req models.ResetPasswordRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		errorResponse := utils.HandleValidationErrors(err)
+		errorResponse := validator.HandleValidationErrors(err)
 		c.JSON(http.StatusBadRequest, errorResponse)
 		return
 	}
@@ -111,7 +112,7 @@ func (ctrl *AuthController) VerifyEmail(c *gin.Context) {
 	var req models.VerifyEmailRequest
 
 	if err := c.ShouldBindQuery(&req); err != nil {
-		errorResponse := utils.HandleValidationErrors(err)
+		errorResponse := validator.HandleValidationErrors(err)
 		c.JSON(http.StatusBadRequest, errorResponse)
 		return
 	}
@@ -163,7 +164,7 @@ func (ctrl *AuthController) ChangePassword(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		errorResponse := utils.HandleValidationErrors(err)
+		errorResponse := validator.HandleValidationErrors(err)
 		c.JSON(http.StatusBadRequest, errorResponse)
 		return
 	}

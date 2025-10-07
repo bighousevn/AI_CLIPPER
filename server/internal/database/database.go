@@ -1,7 +1,7 @@
 package db
 
 import (
-	"bighousevn/be/models"
+	"bighousevn/be/internal/models"
 	"errors"
 
 	"github.com/jackc/pgx/v5/pgconn"

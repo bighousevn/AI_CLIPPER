@@ -1,12 +1,13 @@
 package main
 
 import (
-	"bighousevn/be/api"
-	"bighousevn/be/db"
-	"bighousevn/be/middleware"
-	"bighousevn/be/repository"
-	"bighousevn/be/services"
-	"bighousevn/be/utils"
+	db "bighousevn/be/internal/database"
+	api "bighousevn/be/internal/handler"
+
+	"bighousevn/be/internal/repository"
+	"bighousevn/be/internal/routes"
+	services "bighousevn/be/internal/service"
+	utils "bighousevn/be/internal/validator"
 	"context"
 	"log"
 	"net/http"
@@ -22,7 +23,7 @@ import (
 
 func main() {
 	// Load .env file
-	err := godotenv.Load()
+	err := godotenv.Load("../../.env")
 	if err != nil {
 		log.Println("Error loading .env file, proceeding with environment variables")
 	}
@@ -61,26 +62,11 @@ func main() {
 	authService := services.NewAuthService(authRepo)
 	authController := api.NewAuthController(authService)
 
+	// Setup Auth Routes
+	routes.SetupAuthRoutes(r, authController, authRepo)
+
 	v1 := r.Group("/api/v1")
 	{
-		auth := v1.Group("/auth")
-		{
-			auth.POST("/register", authController.Register)
-			auth.POST("/login", authController.Login)
-			auth.POST("/refresh-token", authController.RefreshToken)
-			auth.POST("/forgot-password", authController.ForgotPassword)
-			auth.POST("/reset-password", authController.ResetPassword)
-			auth.GET("/verify-email", authController.VerifyEmail)
-			auth.GET("/logout", authController.Logout)
-		}
-
-		authenticated := v1.Group("/")
-		authenticated.Use(middleware.AuthMiddleware(authRepo))
-		{
-			authenticated.GET("/users/me", authController.GetProfile)
-			authenticated.POST("/users/me/password", authController.ChangePassword)
-
-		}
 		v1.GET("/ping", func(c *gin.Context) {
 			c.JSON(200, gin.H{
 				"message": "pong",
