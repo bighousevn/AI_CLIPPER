@@ -1,9 +1,10 @@
 package services
 
 import (
-	"bighousevn/be/models"
-	"bighousevn/be/repository"
-	"bighousevn/be/utils"
+	"bighousevn/be/internal/auth"
+	"bighousevn/be/internal/email"
+	"bighousevn/be/internal/models"
+	"bighousevn/be/internal/repository"
 	"errors"
 	"fmt"
 	"log"
@@ -32,7 +33,7 @@ func NewAuthService(authRepo repository.AuthRepository) AuthService {
 }
 
 func (s *authService) Logout(refreshToken string) error {
-	claims, err := utils.ValidateRefreshToken(refreshToken)
+	claims, err := auth.ValidateRefreshToken(refreshToken)
 	if err != nil {
 		return errors.New("invalid refresh token")
 	}
@@ -60,12 +61,12 @@ func (s *authService) Register(req *models.RegisterRequest) (*models.User, error
 		return nil, errors.New("database error while checking for user")
 	}
 
-	hashedPassword, err := utils.HashPassword(req.Password)
+	hashedPassword, err := auth.HashPassword(req.Password)
 	if err != nil {
 		return nil, errors.New("failed to hash password")
 	}
 
-	verificationToken, err := utils.GenerateRandomToken(32)
+	verificationToken, err := auth.GenerateRandomToken(32)
 	if err != nil {
 		return nil, errors.New("failed to generate verification token")
 	}
@@ -105,7 +106,7 @@ func (s *authService) Register(req *models.RegisterRequest) (*models.User, error
 	verificationLink := fmt.Sprintf("http://localhost:3000/verify?token=%s", verificationToken)
 	emailBody := fmt.Sprintf("<h1>Welcome!</h1><p>Please verify your email by clicking this link: <a href=\"%s\">%s</a></p>", verificationLink, verificationLink)
 	go func() {
-		if err := utils.SendEmail(user.Email, "Verify Your Email", emailBody); err != nil {
+		if err := email.SendEmail(user.Email, "Verify Your Email", emailBody); err != nil {
 			log.Printf("Failed to send verification email to %s: %v", user.Email, err)
 		}
 	}()
@@ -122,16 +123,16 @@ func (s *authService) Login(req *models.LoginRequest) (string, string, error) {
 		return "", "", errors.New("database error")
 	}
 
-	if !utils.CheckPasswordHash(req.Password, user.Password) {
+	if !auth.CheckPasswordHash(req.Password, user.Password) {
 		return "", "", errors.New("invalid email or password")
 	}
 
-	accessToken, err := utils.GenerateJWT(user.ID)
+	accessToken, err := auth.GenerateJWT(user.ID)
 	if err != nil {
 		return "", "", errors.New("failed to generate access token")
 	}
 
-	refreshToken, err := utils.GenerateRefreshToken(user.ID)
+	refreshToken, err := auth.GenerateRefreshToken(user.ID)
 	if err != nil {
 		return "", "", errors.New("failed to generate refresh token")
 	}
@@ -145,7 +146,7 @@ func (s *authService) Login(req *models.LoginRequest) (string, string, error) {
 }
 
 func (s *authService) RefreshToken(token string) (string, string, error) {
-	claims, err := utils.ValidateRefreshToken(token)
+	claims, err := auth.ValidateRefreshToken(token)
 	if err != nil {
 		return "", "", errors.New("invalid refresh token")
 	}
@@ -164,12 +165,12 @@ func (s *authService) RefreshToken(token string) (string, string, error) {
 		return "", "", errors.New("invalid refresh token")
 	}
 
-	accessToken, err := utils.GenerateJWT(user.ID)
+	accessToken, err := auth.GenerateJWT(user.ID)
 	if err != nil {
 		return "", "", errors.New("failed to generate access token")
 	}
 
-	newRefreshToken, err := utils.GenerateRefreshToken(user.ID)
+	newRefreshToken, err := auth.GenerateRefreshToken(user.ID)
 	if err != nil {
 		return "", "", errors.New("failed to generate new refresh token")
 	}
@@ -191,7 +192,7 @@ func (s *authService) ForgotPassword(req *models.ForgotPasswordRequest) error {
 		return errors.New("database error")
 	}
 
-	token, err := utils.GenerateRandomToken(32)
+	token, err := auth.GenerateRandomToken(32)
 	if err != nil {
 		return errors.New("failed to generate token")
 	}
@@ -207,7 +208,7 @@ func (s *authService) ForgotPassword(req *models.ForgotPasswordRequest) error {
 	resetLink := fmt.Sprintf("http://localhost:3000/reset-password?token=%s", token)
 	emailBody := fmt.Sprintf("<h1>Password Reset</h1><p>Please reset your password by clicking this link: <a href=\"%s\">%s</a></p>", resetLink, resetLink)
 	go func() {
-		if err := utils.SendEmail(user.Email, "Reset Your Password", emailBody); err != nil {
+		if err := email.SendEmail(user.Email, "Reset Your Password", emailBody); err != nil {
 			log.Printf("Failed to send password reset email to %s: %v", user.Email, err)
 		}
 	}()
@@ -225,7 +226,7 @@ func (s *authService) ResetPassword(req *models.ResetPasswordRequest) error {
 		return errors.New("invalid or expired password reset token")
 	}
 
-	newHashedPassword, err := utils.HashPassword(req.Password)
+	newHashedPassword, err := auth.HashPassword(req.Password)
 	if err != nil {
 		return errors.New("failed to hash new password")
 	}
@@ -263,11 +264,11 @@ func (s *authService) VerifyEmail(req *models.VerifyEmailRequest) error {
 }
 
 func (s *authService) ChangePassword(user *models.User, req *models.ChangePasswordRequest) error {
-	if !utils.CheckPasswordHash(req.OldPassword, user.Password) {
+	if !auth.CheckPasswordHash(req.OldPassword, user.Password) {
 		return errors.New("invalid old password")
 	}
 
-	newHashedPassword, err := utils.HashPassword(req.NewPassword)
+	newHashedPassword, err := auth.HashPassword(req.NewPassword)
 	if err != nil {
 		return errors.New("failed to hash new password")
 	}
