@@ -22,6 +22,10 @@ import (
 )
 
 func main() {
+	// This is a test comment for CI/CD
+	log.Println("Starting the application...")
+	// ... rest of the code
+
 	// Load .env file
 	err := godotenv.Load("../../.env")
 	if err != nil {
