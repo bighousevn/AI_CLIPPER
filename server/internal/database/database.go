@@ -3,6 +3,7 @@ package db
 import (
 	"bighousevn/be/internal/models"
 	"errors"
+	"log"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/driver/postgres"
@@ -39,8 +40,14 @@ func InitDB(dataSourceName string) error {
 // CloseDB closes the database connection pool.
 func CloseDB() {
 	sqlDB, err := DB.DB()
-	sqlDB.Exec("DEALLOCATE ALL")
-	if err == nil && sqlDB != nil {
-		sqlDB.Close()
+	if err != nil {
+		log.Printf("Error getting DB connection: %v", err)
+		return
+	}
+	if _, err := sqlDB.Exec("DEALLOCATE ALL"); err != nil {
+		log.Printf("Error deallocating all statements: %v", err)
+	}
+	if err := sqlDB.Close(); err != nil {
+		log.Printf("Error closing database connection: %v", err)
 	}
 }
