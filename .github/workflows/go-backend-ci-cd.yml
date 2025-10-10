@@ -36,6 +36,7 @@ jobs:
         uses: golangci/golangci-lint-action@v6
         with:
           version: v1.58
+          working-directory: ./server
 
   security-scan:
     runs-on: ubuntu-latest
