@@ -33,7 +33,7 @@ jobs:
         run: go test -v ./...
 
       - name: Install golangci-lint
-        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.1
+        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
       - name: Run linter
         run: golangci-lint run --path-prefix=./server
@@ -95,7 +95,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ./server
           file: ./server/Dockerfile
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/ai-clipper-go-be:${{ github.sha }}
