@@ -35,7 +35,7 @@ jobs:
       - name: Run linter (golangci-lint)
         uses: golangci/golangci-lint-action@v6
         with:
-          version: v1.64.8
+          # version: v1.64.8 # Let the action choose the latest compatible version
           working-directory: ./server
 
   security-scan:
