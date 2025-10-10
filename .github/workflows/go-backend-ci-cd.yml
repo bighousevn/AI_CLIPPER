@@ -32,11 +32,11 @@ jobs:
       - name: Run tests
         run: go test -v ./...
 
-      - name: Run linter (golangci-lint)
-        uses: golangci/golangci-lint-action@v6
-        with:
-          # version: v1.64.8 # Let the action choose the latest compatible version
-          working-directory: ./server
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.1
+
+      - name: Run linter
+        run: golangci-lint run --path-prefix=./server
 
   security-scan:
     runs-on: ubuntu-latest
