@@ -27,7 +27,7 @@ jobs:
           cache-dependency-path: server/go.sum
 
       - name: Install Dependencies
-        run: go mod download
+        run: go mod tidy
 
       - name: Run tests
         run: go test -v ./...
@@ -37,6 +37,9 @@ jobs:
         with:
           version: v1.58
           working-directory: server
+          args: --timeout=5m
+          skip-pkg-cache: false
+          skip-build-cache: false
 
   security-scan:
     runs-on: ubuntu-latest
