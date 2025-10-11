@@ -1,3 +1,4 @@
+import type { AxiosError } from "axios";
 import type { LoginResponse } from "~/interfaces/auth";
 import axiosClient from "~/lib/axiosClient";
 import { signupSchema, type LoginFormValues, type SignupFormValues } from "~/schemas/auth";
@@ -32,10 +33,11 @@ export const signup = async (data: SignupFormValues) => {
         const res = await axiosClient.post("/auth/register", data);
         console.log("Signup response:", res.data);
         return res.data; // có thể trả về user info hoặc message
-    } catch (err: any) {
-        console.error("Signup error:", err);
-        throw new Error(err.response?.data?.message || "Signup failed");
+    } catch (err) {
+        const error = err as AxiosError<{ message?: string }>;
+        throw new Error(error.response?.data?.message || "Signup failed");
     }
+
 };
 /**
  * Gọi API logout, xóa accessToken localStorage
@@ -75,7 +77,9 @@ export const verifyEmail = async (token: string) => {
     try {
         const res = await axiosClient.get(`/auth/verify-email?token=${token}`);
         return res.data; // có thể chứa message như "Email verified successfully"
-    } catch (err: any) {
-        throw new Error(err.response?.data?.message || "Xác thực thất bại");
+    } catch (err) {
+        const error = err as AxiosError<{ message?: string }>;
+        throw new Error(error.response?.data?.message || "Email verification failed");
     }
+
 };
