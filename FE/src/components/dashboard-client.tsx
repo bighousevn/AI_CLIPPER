@@ -39,7 +39,17 @@ export function DashboardClient({
         clipsCount: number;
         createdAt: Date;
     }[];
-    clips: Clip[];
+    clips: {
+        id: string;
+        title: string;
+        s3Key: string;
+        createdAt: Date;
+        uploadedFileId: string;
+        views: number;
+        videoUrl: string;
+        thumbnailUrl: string;
+    }[]
+
 }) {
     const [files, setFiles] = useState<File[]>([]);
     const [uploading, setUploading] = useState(false);
