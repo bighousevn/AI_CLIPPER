@@ -20,6 +20,7 @@ import { signupSchema, type SignupFormValues } from "~/schemas/auth";
 import { useRouter } from "next/navigation";
 import axiosClient from "~/lib/axiosClient";
 import { signup } from "~/services/authService";
+import type { AxiosError } from "axios";
 
 export function SignupForm({
     className,
@@ -44,9 +45,11 @@ export function SignupForm({
 
             // Redirect
             router.push("/verify");
-        } catch (err: any) {
-            setError(err.response?.data?.message || "Signup failed");
-        } finally {
+        } catch (err) {
+            const error = err as AxiosError<{ message?: string }>;
+            throw new Error(error.response?.data?.message || "Signup failed");
+        }
+        finally {
             setIsSubmitting(false);
         }
     };

@@ -23,17 +23,20 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.25"
           cache-dependency-path: server/go.sum
+
+      - name: Install Dependencies
+        run: go mod tidy
 
       - name: Run tests
         run: go test -v ./...
 
-      - name: Run linter (golangci-lint)
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: v1.58
-          working-directory: server
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+      - name: Run linter
+        run: golangci-lint run --path-prefix=./server
 
   security-scan:
     runs-on: ubuntu-latest
@@ -92,7 +95,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ./server
           file: ./server/Dockerfile
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/ai-clipper-go-be:${{ github.sha }}

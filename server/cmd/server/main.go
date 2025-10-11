@@ -22,6 +22,9 @@ import (
 )
 
 func main() {
+
+	log.Println("Starting the application...")
+
 	// Load .env file
 	err := godotenv.Load("../../.env")
 	if err != nil {
@@ -43,7 +46,9 @@ func main() {
 		panic(err)
 	}
 	r := gin.Default()
-	r.SetTrustedProxies(nil)
+	if err := r.SetTrustedProxies(nil); err != nil {
+		panic(err)
+	}
 	// CORS configuration
 	feURL := os.Getenv("FE_URL")
 	if feURL == "" {

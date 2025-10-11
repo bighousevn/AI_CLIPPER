@@ -1,6 +1,5 @@
 "use client";
 
-import type { Clip } from "@prisma/client";
 import Link from "next/link";
 import { Button } from "./ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
@@ -39,7 +38,17 @@ export function DashboardClient({
         clipsCount: number;
         createdAt: Date;
     }[];
-    clips: Clip[];
+    clips: {
+        id: string;
+        title: string;
+        s3Key: string;
+        createdAt: Date;
+        uploadedFileId: string;
+        views: number;
+        videoUrl: string;
+        thumbnailUrl: string;
+    }[]
+
 }) {
     const [files, setFiles] = useState<File[]>([]);
     const [uploading, setUploading] = useState(false);

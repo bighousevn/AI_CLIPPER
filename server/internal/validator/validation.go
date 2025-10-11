@@ -77,16 +77,20 @@ func RegisterValidators() error {
 	}
 
 	var slugRegex = regexp.MustCompile(`^[a-z0-9]+(?:[-.][a-z0-9]+)*$`)
-	v.RegisterValidation("slug", func(fl validator.FieldLevel) bool {
+	if err := v.RegisterValidation("slug", func(fl validator.FieldLevel) bool {
 		return slugRegex.MatchString(fl.Field().String())
-	})
+	}); err != nil {
+		return err
+	}
 
 	var searchRegex = regexp.MustCompile(`^[a-zA-Z0-9\s]+$`)
-	v.RegisterValidation("search", func(fl validator.FieldLevel) bool {
+	if err := v.RegisterValidation("search", func(fl validator.FieldLevel) bool {
 		return searchRegex.MatchString(fl.Field().String())
-	})
+	}); err != nil {
+		return err
+	}
 
-	v.RegisterValidation("min_int", func(fl validator.FieldLevel) bool {
+	if err := v.RegisterValidation("min_int", func(fl validator.FieldLevel) bool {
 		minStr := fl.Param()
 		minVal, err := strconv.ParseInt(minStr, 10, 64)
 		if err != nil {
@@ -94,9 +98,11 @@ func RegisterValidators() error {
 		}
 
 		return fl.Field().Int() >= minVal
-	})
+	}); err != nil {
+		return err
+	}
 
-	v.RegisterValidation("max_int", func(fl validator.FieldLevel) bool {
+	if err := v.RegisterValidation("max_int", func(fl validator.FieldLevel) bool {
 		maxStr := fl.Param()
 		maxVal, err := strconv.ParseInt(maxStr, 10, 64)
 		if err != nil {
@@ -104,9 +110,11 @@ func RegisterValidators() error {
 		}
 
 		return fl.Field().Int() <= maxVal
-	})
+	}); err != nil {
+		return err
+	}
 
-	v.RegisterValidation("file_ext", func(fl validator.FieldLevel) bool {
+	if err := v.RegisterValidation("file_ext", func(fl validator.FieldLevel) bool {
 		filename := fl.Field().String()
 
 		allowedStr := fl.Param()
@@ -124,7 +132,9 @@ func RegisterValidators() error {
 		}
 
 		return false
-	})
+	}); err != nil {
+		return err
+	}
 
 	return nil
 }
