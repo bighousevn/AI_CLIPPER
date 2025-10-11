@@ -80,8 +80,10 @@ jobs:
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
+        env:
+          BUILDKIT_PROGRESS: plain   # hiện full log
         with:
-          context: .
+          context: ./FE
           file: ./FE/Dockerfile
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/ai-clipper-fe:${{ github.sha }}
