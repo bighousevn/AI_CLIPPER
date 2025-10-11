@@ -1,6 +1,5 @@
 "use client";
 
-import type { Clip } from "@prisma/client";
 import Link from "next/link";
 import { Button } from "./ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";

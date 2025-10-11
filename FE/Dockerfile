@@ -2,22 +2,22 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-COPY FE/package*.json ./
-RUN npm install
+COPY package*.json ./
+RUN npm ci
 
-COPY FE/ .
+COPY . .
 
 RUN npm run build
 
 # Stage 2: Create the final, optimized image
 FROM node:20-alpine
 WORKDIR /app
-
+COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/package.json .
 
-RUN npm install --only=production
+# RUN npm ci --only=production
 
 EXPOSE 3000
 
