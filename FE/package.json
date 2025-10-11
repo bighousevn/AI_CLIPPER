@@ -13,7 +13,7 @@
     "db:migrate": "prisma migrate deploy",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
     "format:write": "prettier --write \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
-    "postinstall": "prisma generate",
+    "postinstall": "echo 'skip prisma generate in frontend'",
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
     "preview": "next build && next start",
