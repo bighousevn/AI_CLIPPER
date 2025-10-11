@@ -23,7 +23,7 @@ import (
 
 func main() {
 
-	log.Println("Starting the application...")
+	
 
 	// Load .env file
 	err := godotenv.Load("../../.env")
