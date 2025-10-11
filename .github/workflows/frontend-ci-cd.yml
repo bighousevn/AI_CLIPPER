@@ -23,7 +23,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "20.14.10"
           cache: "npm"
           cache-dependency-path: FE/package-lock.json
 
@@ -81,7 +81,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ./FE
           file: ./FE/Dockerfile
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/ai-clipper-fe:${{ github.sha }}
