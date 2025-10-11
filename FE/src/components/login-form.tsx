@@ -13,6 +13,7 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import axiosClient from "~/lib/axiosClient";
 import { login } from "~/services/authService";
+import type { AxiosError } from "axios";
 
 export function LoginForm({
     className,
@@ -35,8 +36,9 @@ export function LoginForm({
 
             // Redirect
             router.push("/dashboard");
-        } catch (error: any) {
-            setError(error.response?.data?.message || "Invalid email or password.");
+        } catch (err) {
+            const error = err as AxiosError<{ message?: string }>;
+            throw new Error(error.response?.data?.message || "Invalid email or password.");
         } finally {
             setSubmitting(false);
         }
