@@ -10,20 +10,10 @@ import {
     CardHeader,
     CardTitle,
 } from "./ui/card";
-import { Loader2, UploadCloud } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "./ui/table";
-import { Badge } from "./ui/badge";
+
 import { useRouter } from "next/navigation";
-import type { DropzoneState } from "react-dropzone";
 import { Dropzone, DropzoneContent, DropzoneEmptyState } from "./ui/shadcn-io/dropzone";
 
 export function DashboardClient({
@@ -98,33 +88,6 @@ export function DashboardClient({
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            {/* <Dropzone
-                                onDrop={handleDrop}
-                                accept={{ "video/mp4": [".mp4"] }}
-                                maxSize={500 * 1024 * 1024}
-                                disabled={uploading}
-                                maxFiles={1}
-                            >
-                                {(dropzone: DropzoneState) => (
-                                    <>
-                                        <div className="flex flex-col items-center justify-center space-y-4 rounded-lg p-10 text-center">
-                                            <UploadCloud className="text-muted-foreground h-12 w-12" />
-                                            <p className="font-medium">Drag and drop your file</p>
-                                            <p className="text-muted-foreground text-sm">
-                                                or click to browse (MP4 up to 500MB)
-                                            </p>
-                                            <Button
-                                                className="cursor-pointer"
-                                                variant="default"
-                                                size="sm"
-                                                disabled={uploading}
-                                            >
-                                                Select File
-                                            </Button>
-                                        </div>
-                                    </>
-                                )}
-                            </Dropzone> */}
                             <Dropzone
                                 accept={{ "video/mp4": [".mp4"] }}
                                 disabled={uploading}
@@ -134,6 +97,7 @@ export function DashboardClient({
                                 onDrop={handleDrop}
                                 onError={console.error}
                                 src={files}
+
                             >
                                 <DropzoneEmptyState />
                                 <DropzoneContent />
