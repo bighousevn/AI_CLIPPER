@@ -17,29 +17,16 @@ import { useRouter } from "next/navigation";
 import { Dropzone, DropzoneContent, DropzoneEmptyState } from "./ui/shadcn-io/dropzone";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Badge } from "./ui/badge";
+import type { Clip } from "~/interfaces/clip";
+import type { UploadFile } from "~/interfaces/uploadfile";
+import { ClipDisplay } from "./clip-display";
 
 export function DashboardClient({
     uploadedFiles,
     clips,
 }: {
-    uploadedFiles: {
-        id: string;
-        s3Key: string;
-        filename: string;
-        status: string;
-        clipsCount: number;
-        createdAt: Date;
-    }[];
-    clips: {
-        id: string;
-        title: string;
-        s3Key: string;
-        createdAt: Date;
-        uploadedFileId: string;
-        views: number;
-        videoUrl: string;
-        thumbnailUrl: string;
-    }[]
+    uploadedFiles: UploadFile[];
+    clips: Clip[]
 
 }) {
     const [files, setFiles] = useState<File[]>([]);
@@ -216,7 +203,9 @@ export function DashboardClient({
                                 few minutes.
                             </CardDescription>
                         </CardHeader>
-
+                        <CardContent>
+                            <ClipDisplay clips={clips} />
+                        </CardContent>
                     </Card>
                 </TabsContent>
             </Tabs>
