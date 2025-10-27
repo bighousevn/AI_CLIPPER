@@ -50,7 +50,6 @@ export const logout = async () => {
     } finally {
         localStorage.removeItem("accessToken");
         delete axiosClient.defaults.headers.common["Authorization"];
-        // 🔥 Reload lại toàn bộ context để xoá sạch cache React, state, hook
         window.location.replace("/login");
     }
 };
@@ -60,7 +59,7 @@ export const logout = async () => {
 /**
  * Refresh token từ cookie (HTTP-only)
  */
-export const refreshToken = async () => {
+export const getRefreshToken = async () => {
     try {
         const res = await axiosClient.post("/auth/refresh", {}, { withCredentials: true });
         const newToken = res.data.accessToken;
