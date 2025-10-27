@@ -6,7 +6,7 @@ import { Button } from "./ui/button";
 import { Download, Loader2, Play } from "lucide-react";
 
 function ClipCard({ clip }: { clip: Clip }) {
-    const [playUrl, setPlayUrl] = useState<string | null>("http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4");
+    const [playUrl, setPlayUrl] = useState<string | null>("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4");
     const [isLoadingUrl, setIsLoadingUrl] = useState(false);
 
     // useEffect(() => {

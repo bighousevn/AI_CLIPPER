@@ -37,7 +37,7 @@ export default async function Dashboard() {
             },
         ],
         clips: [
-            { id: "clip1", title: "Funny moment 1", s3Key: "clip_key_1", createdAt: new Date(), uploadedFileId: "1", views: 100, videoUrl: "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", thumbnailUrl: "https://example.com/thumb1.jpg" },
+            { id: "clip1", title: "Funny moment 1", s3Key: "clip_key_1", createdAt: new Date(), uploadedFileId: "1", views: 100, videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", thumbnailUrl: "https://example.com/thumb1.jpg" },
             { id: "clip2", title: "Amazing skill", s3Key: "clip_key_2", createdAt: new Date(Date.now() - 1000 * 60 * 5), uploadedFileId: "1", views: 250, videoUrl: "https://example.com/clip2.mp4", thumbnailUrl: "https://example.com/thumb2.jpg" },
             { id: "clip3", title: "Tutorial part 3", s3Key: "clip_key_3", createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2), uploadedFileId: "3", views: 50, videoUrl: "https://example.com/clip3.mp4", thumbnailUrl: "https://example.com/thumb3.jpg" },
         ]
