@@ -8,10 +8,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import Link from "next/link";
-import { loginSchema, signupSchema, type LoginFormValues, type SignupFormValues } from "~/schemas/auth";
-import { signIn } from "next-auth/react";
+import { loginSchema, type LoginFormValues } from "~/schemas/auth";
 import { useRouter } from "next/navigation";
-import axiosClient from "~/lib/axiosClient";
 import { login } from "~/services/authService";
 import type { AxiosError } from "axios";
 

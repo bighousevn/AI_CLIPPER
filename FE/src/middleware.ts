@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { getRefreshToken } from "./services/authService";
 
 export function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
@@ -9,7 +10,8 @@ export function middleware(request: NextRequest) {
 
     // Nếu đã login mà cố truy cập /login hoặc /register → redirect dashboard
     if (refreshToken && ["/login", "/register"].includes(pathname)) {
-        return NextResponse.redirect(new URL("/dashboard", request.url));
+        const res = getRefreshToken();
+        if (res !== null) return NextResponse.redirect(new URL("/dashboard", request.url));
     }
 
     // Ngược lại, cho phép đi tiếp
