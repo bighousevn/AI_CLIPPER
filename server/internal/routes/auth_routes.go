@@ -8,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func SetupAuthRoutes(r *gin.Engine, authController *handler.AuthController, authRepo repository.AuthRepository) {
+func SetupAuthRoutes(r *gin.Engine, authController *handler.AuthController, fileController *handler.FileHandler, authRepo repository.AuthRepository) {
 	v1 := r.Group("/api/v1")
 	{
 		auth := v1.Group("/auth")
@@ -27,7 +27,7 @@ func SetupAuthRoutes(r *gin.Engine, authController *handler.AuthController, auth
 		{
 			authenticated.GET("/users/me", authController.GetProfile)
 			authenticated.POST("/users/me/password", authController.ChangePassword)
-
+			authenticated.POST("/upload", fileController.UploadFile)
 		}
 	}
 }

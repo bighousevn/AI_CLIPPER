@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 // AuthMiddleware is a middleware to protect routes.
@@ -31,12 +32,17 @@ func AuthMiddleware(authRepo repository.AuthRepository) gin.HandlerFunc {
 			return
 		}
 
-		userIDFloat, ok := claims["user_id"].(float64)
+		userIDStr, ok := claims["user_id"].(string)
 		if !ok {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid user ID in token"})
 			return
 		}
-		userID := uint(userIDFloat)
+
+		userID, err := uuid.Parse(userIDStr)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid user ID format in token"})
+			return
+		}
 
 		user, err := authRepo.GetUserByID(userID)
 		if err != nil {

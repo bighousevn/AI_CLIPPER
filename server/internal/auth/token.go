@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 // GenerateRandomToken generates a secure, random token.
@@ -20,13 +21,13 @@ func GenerateRandomToken(length int) (string, error) {
 }
 
 // GenerateJWT generates a new JWT for a given user ID.
-func GenerateJWT(userID int64) (string, error) {
+func GenerateJWT(userID uuid.UUID) (string, error) {
 	// Get the secret key from the environment variable
 	jwtSecret := []byte(os.Getenv("JWT_SECRET"))
 
 	// Create the claims
 	claims := jwt.MapClaims{
-		"user_id": userID,
+		"user_id": userID.String(),
 		"exp":     time.Now().Add(time.Hour * 24).Unix(), // Token expires in 24 hours
 		"iat":     time.Now().Unix(),                     // Issued at
 	}
@@ -44,13 +45,13 @@ func GenerateJWT(userID int64) (string, error) {
 }
 
 // GenerateRefreshToken generates a new refresh token for a given user ID.
-func GenerateRefreshToken(userID int64) (string, error) {
+func GenerateRefreshToken(userID uuid.UUID) (string, error) {
 	// Get the secret key from the environment variable
 	jwtSecret := []byte(os.Getenv("REFRESH_JWT_SECRET"))
 
 	// Create the claims
 	claims := jwt.MapClaims{
-		"user_id": userID,
+		"user_id": userID.String(),
 		"exp":     time.Now().Add(time.Hour * 24 * 7).Unix(), // Token expires in 7 days
 		"iat":     time.Now().Unix(),                         // Issued at
 	}

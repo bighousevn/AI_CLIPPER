@@ -3,26 +3,26 @@ package models
 import (
 	"time"
 
-	"gorm.io/gorm"
+	"github.com/google/uuid"
 )
 
-// User represents a user in the database, with GORM tags.
+// User represents a user in the database.
 type User struct {
-	ID                       int64          `json:"id" gorm:"primaryKey"`
-	Username                 string         `json:"username" gorm:"unique"`
-	Email                    string         `json:"email" gorm:"unique"`
-	Password                 string         `json:"-" gorm:"column:password_hash"`
-	Credits                  int            `json:"credits" gorm:"default:10"`
-	StripeCustomerID         *string        `json:"stripe_customer_id" gorm:"unique"`
-	RefreshToken             *string        `json:"-" gorm:"unique"`
-	PasswordResetToken       *string        `json:"-" gorm:"uniqueIndex"`
-	PasswordResetExpires     *time.Time     `json:"-"`
-	IsEmailVerified          bool           `json:"is_email_verified" gorm:"default:false"`
-	EmailVerificationToken   *string        `json:"-" gorm:"uniqueIndex"`
-	EmailVerificationExpires *time.Time     `json:"-"`
-	CreatedAt                time.Time      `json:"created_at"`
-	UpdatedAt                time.Time      `json:"updated_at"`
-	DeletedAt                gorm.DeletedAt `gorm:"index"`
+	ID                       *uuid.UUID `json:"id,omitempty"`
+	Username                 string     `json:"username,omitempty"`
+	Email                    string     `json:"email"`
+	PasswordHash             string     `json:"password_hash"`
+	Credits                  int        `json:"credits,omitempty"`
+	StripeCustomerID         *string    `json:"stripe_customer_id,omitempty"`
+	RefreshToken             *string    `json:"refresh_token"`
+	PasswordResetToken       *string    `json:"password_reset_token"`
+	PasswordResetExpires     *time.Time `json:"password_reset_expires"`
+	IsEmailVerified          bool       `json:"is_email_verified"`
+	EmailVerificationToken   *string    `json:"email_verification_token"`
+	EmailVerificationExpires *time.Time `json:"email_verification_expires"`
+	CreatedAt                time.Time  `json:"created_at,omitempty"`
+	UpdatedAt                time.Time  `json:"updated_at,omitempty"`
+	DeletedAt                *time.Time `json:"deleted_at"`
 }
 
 type RegisterRequest struct {

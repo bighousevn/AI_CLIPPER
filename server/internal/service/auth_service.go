@@ -8,57 +8,48 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
-	"gorm.io/gorm"
+	"github.com/google/uuid"
 )
 
+// AuthService defines the interface for authentication-related business logic.
 type AuthService interface {
 	Register(req *models.RegisterRequest) (*models.User, error)
 	Login(req *models.LoginRequest) (string, string, error)
+	RefreshToken(refreshToken string) (string, string, error)
 	Logout(refreshToken string) error
 	ForgotPassword(req *models.ForgotPasswordRequest) error
 	ResetPassword(req *models.ResetPasswordRequest) error
 	VerifyEmail(req *models.VerifyEmailRequest) error
 	ChangePassword(user *models.User, req *models.ChangePasswordRequest) error
-	RefreshToken(token string) (string, string, error)
 }
 
 type authService struct {
 	authRepo repository.AuthRepository
 }
 
+// NewAuthService creates a new instance of AuthService.
 func NewAuthService(authRepo repository.AuthRepository) AuthService {
 	return &authService{authRepo: authRepo}
 }
 
-func (s *authService) Logout(refreshToken string) error {
-	claims, err := auth.ValidateRefreshToken(refreshToken)
-	if err != nil {
-		return errors.New("invalid refresh token")
-	}
-
-	userID, ok := claims["user_id"].(float64)
-	if !ok {
-		return errors.New("invalid user id in refresh token")
-	}
-
-	user, err := s.authRepo.GetUserByID(uint(userID))
-	if err != nil {
-		return errors.New("user not found")
-	}
-
-	user.RefreshToken = nil
-	if err := s.authRepo.UpdateUser(user); err != nil {
-		return errors.New("failed to logout")
-	}
-	return nil
-}
-
 func (s *authService) Register(req *models.RegisterRequest) (*models.User, error) {
+	log.Printf("DEBUG: Received registration request for email: %s", req.Email)
+	req.Email = strings.ToLower(req.Email)
+	log.Printf("DEBUG: Normalized email to: %s", req.Email)
+
 	user, err := s.authRepo.GetUserByEmail(req.Email)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+	if err != nil {
+		log.Printf("ERROR: Database error while checking for user: %v", err)
 		return nil, errors.New("database error while checking for user")
+	}
+
+	if user != nil {
+		log.Printf("DEBUG: User with email %s found. Is verified: %t", req.Email, user.IsEmailVerified)
+	} else {
+		log.Println("DEBUG: No user found with this email, proceeding to create a new user.")
 	}
 
 	hashedPassword, err := auth.HashPassword(req.Password)
@@ -70,37 +61,53 @@ func (s *authService) Register(req *models.RegisterRequest) (*models.User, error
 	if err != nil {
 		return nil, errors.New("failed to generate verification token")
 	}
-	verificationExpires := time.Now().Add(time.Minute * 15)
+	// Use UTC and extend to 24 hours for better UX
+	verificationExpires := time.Now().UTC().Add(time.Hour * 24)
+	log.Printf("DEBUG: Verification token expires at: %v", verificationExpires)
 
-	// User exists
 	if user != nil {
 		if user.IsEmailVerified {
 			return nil, errors.New("user with this email already exists")
 		}
 
 		// User is not verified, overwrite data
+		log.Printf("DEBUG: Updating existing unverified user")
 		user.Username = req.Username
-		user.Password = hashedPassword
+		user.PasswordHash = hashedPassword
 		user.EmailVerificationToken = &verificationToken
 		user.EmailVerificationExpires = &verificationExpires
+		log.Printf("DEBUG: Setting EmailVerificationExpires to: %v", verificationExpires)
 
 		if err := s.authRepo.UpdateUser(user); err != nil {
+			log.Printf("ERROR: Failed to update unverified user: %v", err)
 			return nil, errors.New("failed to update user")
 		}
 	} else {
 		// User does not exist, create new user
+		log.Printf("DEBUG: Creating new user with verification token: %s", verificationToken)
 		newUser := &models.User{
 			Username:                 req.Username,
 			Email:                    req.Email,
-			Password:                 hashedPassword,
+			PasswordHash:             hashedPassword,
 			EmailVerificationToken:   &verificationToken,
 			EmailVerificationExpires: &verificationExpires,
 		}
 
+		log.Printf("DEBUG: About to create user in database with token: %s, expires: %v", *newUser.EmailVerificationToken, *newUser.EmailVerificationExpires)
 		if err := s.authRepo.CreateUser(newUser); err != nil {
+			log.Printf("ERROR: Failed to create new user, potential 409 Conflict: %v", err)
 			return nil, errors.New("failed to create user")
 		}
-		user = newUser
+		log.Printf("DEBUG: User created successfully")
+
+		// Query user back from database to get the Supabase-generated UUID
+		createdUser, err := s.authRepo.GetUserByEmail(req.Email)
+		if err != nil || createdUser == nil {
+			log.Printf("ERROR: Failed to retrieve created user: %v", err)
+			return nil, errors.New("failed to retrieve created user")
+		}
+		log.Printf("DEBUG: Retrieved user from DB with ID: %s", createdUser.ID)
+		user = createdUser
 	}
 
 	verificationLink := fmt.Sprintf("http://localhost:3000/verify?token=%s", verificationToken)
@@ -117,22 +124,22 @@ func (s *authService) Register(req *models.RegisterRequest) (*models.User, error
 func (s *authService) Login(req *models.LoginRequest) (string, string, error) {
 	user, err := s.authRepo.GetUserByEmail(req.Email)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return "", "", errors.New("invalid email or password")
-		}
 		return "", "", errors.New("database error")
 	}
-
-	if !auth.CheckPasswordHash(req.Password, user.Password) {
+	if user == nil {
 		return "", "", errors.New("invalid email or password")
 	}
 
-	accessToken, err := auth.GenerateJWT(user.ID)
+	if !auth.CheckPasswordHash(req.Password, user.PasswordHash) {
+		return "", "", errors.New("invalid email or password")
+	}
+
+	accessToken, err := auth.GenerateJWT(*user.ID)
 	if err != nil {
 		return "", "", errors.New("failed to generate access token")
 	}
 
-	refreshToken, err := auth.GenerateRefreshToken(user.ID)
+	refreshToken, err := auth.GenerateRefreshToken(*user.ID)
 	if err != nil {
 		return "", "", errors.New("failed to generate refresh token")
 	}
@@ -145,32 +152,32 @@ func (s *authService) Login(req *models.LoginRequest) (string, string, error) {
 	return accessToken, refreshToken, nil
 }
 
-func (s *authService) RefreshToken(token string) (string, string, error) {
-	claims, err := auth.ValidateRefreshToken(token)
+func (s *authService) RefreshToken(refreshToken string) (string, string, error) {
+	claims, err := auth.ValidateRefreshToken(refreshToken)
 	if err != nil {
 		return "", "", errors.New("invalid refresh token")
 	}
 
-	userID, ok := claims["user_id"].(float64)
-	if !ok {
+	userID, err := uuid.Parse(claims["user_id"].(string))
+	if err != nil {
 		return "", "", errors.New("invalid user id in refresh token")
 	}
 
-	user, err := s.authRepo.GetUserByID(uint(userID))
-	if err != nil {
+	user, err := s.authRepo.GetUserByID(userID)
+	if err != nil || user == nil {
 		return "", "", errors.New("user not found")
 	}
 
-	if user.RefreshToken == nil || *user.RefreshToken != token {
-		return "", "", errors.New("invalid refresh token")
+	if user.RefreshToken == nil || *user.RefreshToken != refreshToken {
+		return "", "", errors.New("refresh token mismatch")
 	}
 
-	accessToken, err := auth.GenerateJWT(user.ID)
+	newAccessToken, err := auth.GenerateJWT(*user.ID)
 	if err != nil {
-		return "", "", errors.New("failed to generate access token")
+		return "", "", errors.New("failed to generate new access token")
 	}
 
-	newRefreshToken, err := auth.GenerateRefreshToken(user.ID)
+	newRefreshToken, err := auth.GenerateRefreshToken(*user.ID)
 	if err != nil {
 		return "", "", errors.New("failed to generate new refresh token")
 	}
@@ -180,16 +187,40 @@ func (s *authService) RefreshToken(token string) (string, string, error) {
 		return "", "", errors.New("failed to save new refresh token")
 	}
 
-	return accessToken, newRefreshToken, nil
+	return newAccessToken, newRefreshToken, nil
+}
+
+func (s *authService) Logout(refreshToken string) error {
+	claims, err := auth.ValidateRefreshToken(refreshToken)
+	if err != nil {
+		return errors.New("invalid refresh token")
+	}
+
+	userID, err := uuid.Parse(claims["user_id"].(string))
+	if err != nil {
+		return errors.New("invalid user id in refresh token")
+	}
+
+	user, err := s.authRepo.GetUserByID(userID)
+	if err != nil || user == nil {
+		return errors.New("user not found")
+	}
+
+	user.RefreshToken = nil
+	if err := s.authRepo.UpdateUser(user); err != nil {
+		return errors.New("failed to logout")
+	}
+
+	return nil
 }
 
 func (s *authService) ForgotPassword(req *models.ForgotPasswordRequest) error {
 	user, err := s.authRepo.GetUserByEmail(req.Email)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil // Don't reveal if user exists
-		}
 		return errors.New("database error")
+	}
+	if user == nil {
+		return nil // Don't reveal if user exists
 	}
 
 	token, err := auth.GenerateRandomToken(32)
@@ -217,8 +248,8 @@ func (s *authService) ForgotPassword(req *models.ForgotPasswordRequest) error {
 }
 
 func (s *authService) ResetPassword(req *models.ResetPasswordRequest) error {
-	user, err := s.authRepo.GetUserByPasswordResetToken(req.Token)
-	if err != nil {
+	user, err := s.authRepo.GetUserByField("password_reset_token", req.Token)
+	if err != nil || user == nil {
 		return errors.New("invalid or expired password reset token")
 	}
 
@@ -231,7 +262,7 @@ func (s *authService) ResetPassword(req *models.ResetPasswordRequest) error {
 		return errors.New("failed to hash new password")
 	}
 
-	user.Password = newHashedPassword
+	user.PasswordHash = newHashedPassword
 	user.PasswordResetToken = nil
 	user.PasswordResetExpires = nil
 
@@ -243,12 +274,31 @@ func (s *authService) ResetPassword(req *models.ResetPasswordRequest) error {
 }
 
 func (s *authService) VerifyEmail(req *models.VerifyEmailRequest) error {
-	user, err := s.authRepo.GetUserByEmailVerificationToken(req.Token)
-	if err != nil {
+	log.Printf("DEBUG: Attempting to verify email with token: %s", req.Token)
+	user, err := s.authRepo.GetUserByField("email_verification_token", req.Token)
+	if err != nil || user == nil {
+		log.Printf("ERROR: User not found for verification token: %v", err)
 		return errors.New("invalid or expired email verification token")
 	}
 
-	if user.EmailVerificationExpires == nil || time.Now().After(*user.EmailVerificationExpires) {
+	log.Printf("DEBUG: Found user: %s", user.Email)
+	log.Printf("DEBUG: Current time (UTC): %v", time.Now().UTC())
+	log.Printf("DEBUG: Current time (Local): %v", time.Now())
+	log.Printf("DEBUG: Token expires at (from DB): %v", user.EmailVerificationExpires)
+
+	if user.EmailVerificationExpires == nil {
+		log.Printf("ERROR: EmailVerificationExpires is nil")
+		return errors.New("invalid or expired email verification token")
+	}
+
+	currentTime := time.Now().UTC()
+	expiresTime := *user.EmailVerificationExpires
+
+	log.Printf("DEBUG: Time comparison - Current: %v, Expires: %v", currentTime, expiresTime)
+	log.Printf("DEBUG: Is expired? %v", currentTime.After(expiresTime))
+
+	if currentTime.After(expiresTime) {
+		log.Printf("ERROR: Verification token expired")
 		return errors.New("invalid or expired email verification token")
 	}
 
@@ -264,7 +314,7 @@ func (s *authService) VerifyEmail(req *models.VerifyEmailRequest) error {
 }
 
 func (s *authService) ChangePassword(user *models.User, req *models.ChangePasswordRequest) error {
-	if !auth.CheckPasswordHash(req.OldPassword, user.Password) {
+	if !auth.CheckPasswordHash(req.OldPassword, user.PasswordHash) {
 		return errors.New("invalid old password")
 	}
 
@@ -273,7 +323,7 @@ func (s *authService) ChangePassword(user *models.User, req *models.ChangePasswo
 		return errors.New("failed to hash new password")
 	}
 
-	user.Password = newHashedPassword
+	user.PasswordHash = newHashedPassword
 	if err := s.authRepo.UpdateUser(user); err != nil {
 		return errors.New("failed to update password")
 	}

@@ -1,92 +1,52 @@
 package utils
 
 import (
-	"errors"
+	"bytes"
 	"fmt"
 	"io"
 	"mime/multipart"
-	"net/http"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/google/uuid"
+	storage_go "github.com/supabase-community/storage-go"
 )
 
-var allowExts = map[string]bool{
-	".jpg":  true,
-	".jpeg": true,
-	".png":  true,
-}
+const (
+	// 500MB
+	maxVideoSize = 50 << 20
+	bucketName   = "uploaded_files"
+)
 
-var allowMimeTypes = map[string]bool{
-	"image/jpeg": true,
-	"image/png":  true,
-}
-
-const maxSize = 5 << 20
-
-func ValidateAndSaveFile(fileHeader *multipart.FileHeader, uploadDir string) (string, error) {
-	// Check extension in filename
-	ext := strings.ToLower(filepath.Ext(fileHeader.Filename))
-	if !allowExts[ext] {
-		return "", errors.New("unsupported file extension")
+func UploadFileToSupabase(storageClient *storage_go.Client, file multipart.File, header *multipart.FileHeader, userID uuid.UUID) (string, error) {
+	// Validate user ID
+	if userID == uuid.Nil {
+		return "", fmt.Errorf("invalid user ID")
 	}
 
-	// Check size
-	if fileHeader.Size > maxSize {
-		return "", errors.New("file too large (max 5MB)")
+	// Validate file size
+	if header.Size > maxVideoSize {
+		return "", fmt.Errorf("file size exceeds the limit of 50MB")
 	}
 
-	// Check file type
-	file, err := fileHeader.Open()
+	// Read file content
+	data, err := io.ReadAll(file)
 	if err != nil {
-		return "", errors.New("cannot open file")
+		return "", fmt.Errorf("failed to read file: %w", err)
 	}
-	defer file.Close()
 
-	buffer := make([]byte, 512)
-	_, err = file.Read(buffer)
+	// Define the path for the file in the bucket (use / for cloud storage, not filepath.Join)
+	fileName := fmt.Sprintf("%s-%s", userID.String(), header.Filename)
+	destinationPath := fmt.Sprintf("user-%s/%s", userID.String(), fileName)
+
+	// Upload the file to Supabase Storage
+	_, err = storageClient.UploadFile(bucketName, destinationPath, bytes.NewReader(data))
 	if err != nil {
-		return "", errors.New("cannot read file")
+		return "", fmt.Errorf("failed to upload file to supabase: %w", err)
 	}
 
-	mimeType := http.DetectContentType(buffer)
-	if !allowMimeTypes[mimeType] {
-		return "", fmt.Errorf("invalid MIME type: %s", mimeType)
-	}
+	// Manually construct the public URL
+	supabaseURL := os.Getenv("SUPABASE_URL")
+	publicURL := fmt.Sprintf("%s/storage/v1/object/public/%s/%s", supabaseURL, bucketName, destinationPath)
 
-	// Change filename abc.jpg
-	filename := fmt.Sprintf("%s%s", uuid.New().String(), ext)
-
-	// Create folder if not exist
-	if err := os.MkdirAll("./uploads", os.ModePerm); err != nil {
-		return "", errors.New("cannot create upload folder")
-	}
-
-	// uploadDir "./upload" + filename "abc.jpg"
-	savePath := filepath.Join(uploadDir, filename)
-	if err := saveFile(fileHeader, savePath); err != nil {
-		return "", err
-	}
-
-	return filename, nil
-}
-
-func saveFile(fileHeader *multipart.FileHeader, destination string) error {
-	src, err := fileHeader.Open()
-	if err != nil {
-		return err
-	}
-	defer src.Close()
-
-	out, err := os.Create(destination)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	_, err = io.Copy(out, src)
-
-	return err
+	return publicURL, nil
 }

@@ -3,7 +3,6 @@ package main
 import (
 	db "bighousevn/be/internal/database"
 	api "bighousevn/be/internal/handler"
-
 	"bighousevn/be/internal/repository"
 	"bighousevn/be/internal/routes"
 	services "bighousevn/be/internal/service"
@@ -22,25 +21,14 @@ import (
 )
 
 func main() {
-
-	
-
 	// Load .env file
 	err := godotenv.Load("../../.env")
 	if err != nil {
 		log.Println("Error loading .env file, proceeding with environment variables")
 	}
 
-	// Initialize Database
-	dbURL := os.Getenv("DATABASE_URL")
-	if dbURL == "" {
-		log.Fatal("DATABASE_URL is not set in .env file")
-	}
-	log.Println("Initializing database connection...")
-	if err := db.InitDB(dbURL); err != nil {
-		log.Fatalf("could not connect to the database: %v", err)
-	}
-	log.Println("Database connection established successfully.")
+	// Initialize Supabase
+	db.InitSupabase()
 
 	if err := utils.RegisterValidators(); err != nil {
 		panic(err)
@@ -63,12 +51,13 @@ func main() {
 	}))
 
 	// Initialize Repository, Service, and Controller
-	authRepo := repository.NewAuthRepository(db.DB)
+	authRepo := repository.NewAuthRepository(db.SupabaseClient)
 	authService := services.NewAuthService(authRepo)
 	authController := api.NewAuthController(authService)
+	fileController := api.NewFileHandler()
 
 	// Setup Auth Routes
-	routes.SetupAuthRoutes(r, authController, authRepo)
+	routes.SetupAuthRoutes(r, authController, fileController, authRepo)
 
 	v1 := r.Group("/api/v1")
 	{
@@ -100,13 +89,6 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	log.Println("Shutting down server...")
-
-	// Close the database connection FIRST
-	db.CloseDB()
-	log.Println("Database connection closed.")
-
-	// Wait a bit to ensure DB cleanup is complete
-	time.Sleep(2 * time.Second)
 
 	// Create a context with a timeout for the server to shutdown
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

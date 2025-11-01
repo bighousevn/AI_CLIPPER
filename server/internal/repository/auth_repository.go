@@ -2,71 +2,92 @@ package repository
 
 import (
 	"bighousevn/be/internal/models"
+	"encoding/json"
+	"fmt"
 
-	"gorm.io/gorm"
+	"github.com/google/uuid"
+	supabase "github.com/supabase-community/supabase-go"
 )
 
+// AuthRepository defines the interface for authentication-related database operations.
 type AuthRepository interface {
 	GetUserByEmail(email string) (*models.User, error)
 	CreateUser(user *models.User) error
 	UpdateUser(user *models.User) error
-	GetUserByID(id uint) (*models.User, error)
-	GetUserByPasswordResetToken(token string) (*models.User, error)
-	GetUserByEmailVerificationToken(token string) (*models.User, error)
-	GetUserByRefreshToken(token string) (*models.User, error)
+	GetUserByID(id uuid.UUID) (*models.User, error)
+	GetUserByField(field, value string) (*models.User, error)
 }
 
 type authRepository struct {
-	db *gorm.DB
+	client *supabase.Client
 }
 
-func NewAuthRepository(db *gorm.DB) AuthRepository {
-	return &authRepository{db: db}
+// NewAuthRepository creates a new instance of AuthRepository.
+func NewAuthRepository(client *supabase.Client) AuthRepository {
+	return &authRepository{client: client}
 }
+
+// GetUserByEmail retrieves a user by their email address.
 func (r *authRepository) GetUserByEmail(email string) (*models.User, error) {
-	var user models.User
-	if err := r.db.Where("email = ?", email).First(&user).Error; err != nil {
-		return nil, err
-	}
-	return &user, nil
+	return r.GetUserByField("email", email)
 }
 
-func (r *authRepository) GetUserByID(id uint) (*models.User, error) {
-	var user models.User
-	if err := r.db.First(&user, id).Error; err != nil {
-		return nil, err
-	}
-	return &user, nil
+// GetUserByID retrieves a user by their ID.
+func (r *authRepository) GetUserByID(id uuid.UUID) (*models.User, error) {
+	return r.GetUserByField("id", id.String())
 }
 
-func (r *authRepository) GetUserByPasswordResetToken(token string) (*models.User, error) {
-	var user models.User
-	if err := r.db.Where("password_reset_token = ?", token).First(&user).Error; err != nil {
-		return nil, err
+// GetUserByField retrieves a single user by a specific field and value.
+func (r *authRepository) GetUserByField(field, value string) (*models.User, error) {
+	var results []models.User
+
+	fmt.Printf("DEBUG REPO: Querying user by field '%s' with value '%s'\n", field, value)
+
+	// Execute returns (data []byte, count int64, error)
+	data, count, err := r.client.From("users").Select("*", "exact", false).Eq(field, value).Execute()
+	if err != nil {
+		fmt.Printf("ERROR REPO: Query failed: %v\n", err)
+		return nil, fmt.Errorf("error querying user by %s: %w", field, err)
 	}
-	return &user, nil
+
+	fmt.Printf("DEBUG REPO: Query returned %d rows, data length: %d\n", count, len(data))
+	fmt.Printf("DEBUG REPO: Raw data: %s\n", string(data))
+
+	// Unmarshal the JSON response
+	if err := json.Unmarshal(data, &results); err != nil {
+		fmt.Printf("ERROR REPO: Unmarshal failed: %v\n", err)
+		return nil, fmt.Errorf("error unmarshaling user data: %w", err)
+	}
+
+	fmt.Printf("DEBUG REPO: Found %d users\n", len(results))
+	if len(results) == 0 {
+		return nil, nil // Or a specific "not found" error
+	}
+	return &results[0], nil
 }
 
-func (r *authRepository) GetUserByEmailVerificationToken(token string) (*models.User, error) {
-	var user models.User
-	if err := r.db.Where("email_verification_token = ?", token).First(&user).Error; err != nil {
-		return nil, err
-	}
-	return &user, nil
-}
-
-func (r *authRepository) GetUserByRefreshToken(token string) (*models.User, error) {
-	var user models.User
-	if err := r.db.Where("refresh_token = ?", token).First(&user).Error; err != nil {
-		return nil, err
-	}
-	return &user, nil
-}
-
+// CreateUser creates a new user in the database.
 func (r *authRepository) CreateUser(user *models.User) error {
-	return r.db.Create(user).Error
+	fmt.Printf("DEBUG REPO: Creating user - Email: %s, Token: %v, Expires: %v\n",
+		user.Email, user.EmailVerificationToken, user.EmailVerificationExpires)
+
+	// Execute returns (data []byte, count int64, error)
+	data, count, err := r.client.From("users").Insert(user, false, "", "", "").Execute()
+	if err != nil {
+		fmt.Printf("ERROR REPO: Failed to create user: %v\n", err)
+		return fmt.Errorf("error creating user: %w", err)
+	}
+
+	fmt.Printf("DEBUG REPO: Insert returned - Count: %d, Data: %s\n", count, string(data))
+	return nil
 }
 
+// UpdateUser updates an existing user's information in the database.
 func (r *authRepository) UpdateUser(user *models.User) error {
-	return r.db.Save(user).Error
+	// Execute returns (data []byte, count int64, error)
+	_, _, err := r.client.From("users").Update(user, "", "").Eq("id", user.ID.String()).Execute()
+	if err != nil {
+		return fmt.Errorf("error updating user: %w", err)
+	}
+	return nil
 }
