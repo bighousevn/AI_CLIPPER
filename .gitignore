@@ -53,3 +53,10 @@ FE/out
 FE/build
 FE/.env.local
 FE/next-env.d.ts
+
+# Custom ignores
+*.mp4
+sfd_face.pth
+.venv
+server.exe
+__pycache__/
