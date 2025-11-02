@@ -18,7 +18,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { signupSchema, type SignupFormValues } from "~/schemas/auth";
 import { useRouter } from "next/navigation";
-import axiosClient from "~/lib/axiosClient";
 import { signup } from "~/services/authService";
 import type { AxiosError } from "axios";
 
