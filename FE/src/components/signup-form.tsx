@@ -43,7 +43,8 @@ export function SignupForm({
             const res = await signup(data);
 
             // Redirect
-            router.push("/verify");
+            // router.push("/verify");
+            window.location.href = "https://mail.google.com/mail/u/0/#inbox";
         } catch (err) {
             const error = err as AxiosError<{ message?: string }>;
             throw new Error(error.response?.data?.message || "Signup failed");

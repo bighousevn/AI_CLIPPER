@@ -13,6 +13,7 @@ export default function VerifyClient() {
         // Gọi API xác minh
         (async () => {
             try {
+                console.log(`${process.env.NEXT_PUBLIC_API_URL}/auth/verify-email?token=${token}`);
                 const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/verify-email?token=${token}`, {
                     method: 'POST',
                     credentials: 'include',
