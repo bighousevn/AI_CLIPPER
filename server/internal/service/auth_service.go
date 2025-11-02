@@ -169,6 +169,11 @@ func (s *authService) RefreshToken(refreshToken string) (string, string, error) 
 	}
 
 	if user.RefreshToken == nil || *user.RefreshToken != refreshToken {
+		// Token reuse detected, clear the token for security
+		if user != nil {
+			user.RefreshToken = nil
+			s.authRepo.UpdateUser(user)
+		}
 		return "", "", errors.New("refresh token mismatch")
 	}
 

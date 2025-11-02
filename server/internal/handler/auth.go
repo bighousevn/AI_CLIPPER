@@ -65,6 +65,7 @@ func (ctrl *AuthController) RefreshToken(c *gin.Context) {
 
 	accessToken, newRefreshToken, err := ctrl.authService.RefreshToken(refreshToken)
 	if err != nil {
+		c.SetCookie("refresh_token", "", -1, "/", "localhost", false, true)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
