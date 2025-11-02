@@ -61,7 +61,7 @@ export const logout = async () => {
  */
 export const getRefreshToken = async () => {
     try {
-        const res = await axiosClient.post("/auth/refresh", {}, { withCredentials: true });
+        const res = await axiosClient.post("/auth/refresh-token", {}, { withCredentials: true });
         const newToken = res.data.accessToken;
         localStorage.setItem("accessToken", newToken);
         return newToken;
