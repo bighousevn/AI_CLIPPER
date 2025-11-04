@@ -37,30 +37,32 @@ axiosClient.interceptors.response.use(
     (response) => response,
     async (error) => {
         const originalRequest = error.config;
+        const url = originalRequest?.url || "";
 
-        // Nếu gặp lỗi 401 (Unauthorized) và chưa retry
+        // ❌ Nếu lỗi 401 nhưng là login/register → chỉ trả lỗi về, không refresh
+        if (
+            error.response?.status === 401 &&
+            (url.includes("/auth/login") || url.includes("/auth/register"))
+        ) {
+            return Promise.reject(error);
+        }
+
+        // ✅ Các lỗi 401 khác (token hết hạn)
         if (error.response?.status === 401 && !originalRequest._retry) {
             originalRequest._retry = true;
-
             try {
-                // 👉 Gọi refresh token API (cookie được gửi kèm nhờ withCredentials)
                 const res = await axios.post(
                     `${process.env.NEXT_PUBLIC_API_URL}/auth/refresh-token`,
                     {},
-                    { withCredentials: true } // cookie refresh_token được gửi tự động
+                    { withCredentials: true }
                 );
 
                 const newAccessToken = res.data.access_token;
-
-                // Lưu lại access token mới
                 localStorage.setItem("accessToken", newAccessToken);
-
-                // Gắn lại token vào request gốc và thử gửi lại
                 originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
                 return axiosClient(originalRequest);
             } catch (err) {
                 console.error("Refresh token failed:", err);
-                // Nếu refresh token hết hạn hoặc lỗi -> xoá token + logout
                 localStorage.removeItem("accessToken");
                 window.location.href = "/login";
             }
@@ -69,5 +71,6 @@ axiosClient.interceptors.response.use(
         return Promise.reject(error);
     }
 );
+
 
 export default axiosClient;

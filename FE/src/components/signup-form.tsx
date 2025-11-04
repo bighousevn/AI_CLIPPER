@@ -20,6 +20,7 @@ import { signupSchema, type SignupFormValues } from "~/schemas/auth";
 import { useRouter } from "next/navigation";
 import { signup } from "~/services/authService";
 import type { AxiosError } from "axios";
+import { set } from "zod";
 
 export function SignupForm({
     className,
@@ -27,7 +28,6 @@ export function SignupForm({
 }: React.ComponentPropsWithoutRef<"div">) {
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const router = useRouter();
 
     const {
         register,
@@ -40,15 +40,18 @@ export function SignupForm({
             setIsSubmitting(true);
             setError(null);
 
-            const res = await signup(data);
+            await signup(data);
 
             // Redirect
-            // router.push("/verify");
             window.location.href = "https://mail.google.com/mail/u/0/#inbox";
         } catch (err) {
-            const error = err as AxiosError<{ message?: string }>;
-            throw new Error(error.response?.data?.message || "Signup failed");
+            if (err instanceof Error) {
+                setError(err.message);
+            } else {
+                setError("Signup failed");
+            }
         }
+
         finally {
             setIsSubmitting(false);
         }

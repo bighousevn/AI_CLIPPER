@@ -34,8 +34,8 @@ export const signup = async (data: SignupFormValues) => {
         console.log("Signup response:", res.data);
         return res.data; // có thể trả về user info hoặc message
     } catch (err) {
-        const error = err as AxiosError<{ message?: string }>;
-        throw new Error(error.response?.data?.message || "Signup failed");
+        const error = err as AxiosError<{ message?: string, error?: string }>;
+        throw new Error(error.response?.data?.error || "Signup failed");
     }
 
 };
