@@ -5,7 +5,6 @@ import { Badge } from "./badge";
 import { Button } from "./button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "./dropdown-menu";
 import { Avatar, AvatarFallback } from "./avatar";
-import { signOut } from "next-auth/react";
 import { ModeToggle } from "../mode-toggle";
 import { useAuth } from "~/hooks/useAuth";
 import { Loader2 } from "lucide-react";
