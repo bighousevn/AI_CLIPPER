@@ -172,11 +172,13 @@ func (s *authService) RefreshToken(refreshToken string) (string, string, error) 
 		// Token reuse detected, clear the token for security
 		if user != nil {
 			user.RefreshToken = nil
-			s.authRepo.UpdateUser(user)
+			if err := s.authRepo.UpdateUser(user); err != nil {
+				log.Printf("ERROR: Failed to clear refresh token for user %s: %v", user.ID, err)
+				// Even if this fails, we should still deny the refresh token
+			}
 		}
 		return "", "", errors.New("refresh token mismatch")
 	}
-
 	newAccessToken, err := auth.GenerateJWT(*user.ID)
 	if err != nil {
 		return "", "", errors.New("failed to generate new access token")

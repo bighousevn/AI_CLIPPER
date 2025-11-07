@@ -18,6 +18,7 @@ import whisperx
 from google import genai
 import google.genai.errors
 import modal
+from typing import List, Dict, Tuple, Optional  
 
 from pydantic import BaseModel
 
@@ -53,8 +54,7 @@ auth_scheme = HTTPBearer()
 def create_vertical_video(tracks, scores, pyframes_path, pyavi_path, audio_path, output_path, framerate=25):
     target_width = 1080
     target_height = 1920
-    print(tracks)
-    print("\n", scores)
+ 
     flist = glob.glob(os.path.join(pyframes_path, "*.jpg"))
     flist.sort()
 
@@ -73,7 +73,7 @@ def create_vertical_video(tracks, scores, pyframes_path, pyavi_path, audio_path,
                 {'track': tidx, 'score': avg_score, 's': track['proc_track']["s"][fidx], 'x': track['proc_track']["x"][fidx], 'y': track['proc_track']["y"][fidx]})
 
     temp_video_path = os.path.join(pyavi_path, "video_only.mp4")
-    print("\n", faces)
+ 
 
     vout = None
     for fidx, fname in tqdm(enumerate(flist), total=len(flist), desc="Creating vertical video"):
@@ -153,54 +153,174 @@ def create_vertical_video(tracks, scores, pyframes_path, pyavi_path, audio_path,
     subprocess.run(ffmpeg_command, shell=True, check=True, text=True)
 
 
-def create_subtitles_with_ffmpeg(transcript_segments: list, clip_start: float, clip_end: float, clip_video_path: str, output_path: str, max_words: int = 5):
-    temp_dir = os.path.dirname(output_path)
+# def create_subtitles_with_ffmpeg(transcript_segments: list, clip_start: float, clip_end: float, clip_video_path: str, output_path: str, max_words: int = 5):
+#     temp_dir = os.path.dirname(output_path)
+#     subtitle_path = os.path.join(temp_dir, "temp_subtitles.ass")
+
+#     clip_segments = [segment for segment in transcript_segments
+#                      if segment.get("start") is not None
+#                      and segment.get("end") is not None
+#                      and segment.get("end") > clip_start
+#                      and segment.get("start") < clip_end
+#                      ]
+
+#     subtitles = []
+#     current_words = []
+#     current_start = None
+#     current_end = None
+
+#     for segment in clip_segments:
+#         word = segment.get("word", "").strip()
+#         seg_start = segment.get("start")
+#         seg_end = segment.get("end")
+
+#         if not word or seg_start is None or seg_end is None:
+#             continue
+
+#         start_rel = max(0.0, seg_start - clip_start)
+#         end_rel = max(0.0, seg_end - clip_start)
+
+#         if end_rel <= 0:
+#             continue
+
+#         if not current_words:
+#             current_start = start_rel
+#             current_end = end_rel
+#             current_words = [word]
+#         elif len(current_words) >= max_words:
+#             subtitles.append(
+#                 (current_start, current_end, ' '.join(current_words)))
+#             current_words = [word]
+#             current_start = start_rel
+#             current_end = end_rel
+#         else:
+#             current_words.append(word)
+#             current_end = end_rel
+
+#     if current_words:
+#         subtitles.append(
+#             (current_start, current_end, ' '.join(current_words)))
+
+#     subs = pysubs2.SSAFile()
+
+#     subs.info["WrapStyle"] = 0
+#     subs.info["ScaledBorderAndShadow"] = "yes"
+#     subs.info["PlayResX"] = 1080
+#     subs.info["PlayResY"] = 1920
+#     subs.info["ScriptType"] = "v4.00+"
+
+#     style_name = "Default"
+#     new_style = pysubs2.SSAStyle()
+#     new_style.fontname = "Anton"
+#     new_style.fontsize = 140
+#     new_style.primarycolor = pysubs2.Color(255, 255, 255)
+#     new_style.outline = 2.0
+#     new_style.shadow = 2.0
+#     new_style.shadowcolor = pysubs2.Color(0, 0, 0, 128)
+#     new_style.alignment = 2
+#     new_style.marginl = 50
+#     new_style.marginr = 50
+#     new_style.marginv = 50
+#     new_style.spacing = 0.0
+
+#     subs.styles[style_name] = new_style
+
+#     for i, (start, end, text) in enumerate(subtitles):
+#         start_time = pysubs2.make_time(s=start)
+#         end_time = pysubs2.make_time(s=end)
+#         line = pysubs2.SSAEvent(
+#             start=start_time, end=end_time, text=text, style=style_name)
+#         subs.events.append(line)
+
+#     subs.save(subtitle_path)
+
+#     ffmpeg_cmd = (f"ffmpeg -y -i {clip_video_path} -vf \"ass={subtitle_path}\" "
+#                   f"-c:v h264 -preset fast -crf 23 {output_path}")
+
+#     subprocess.run(ffmpeg_cmd, shell=True, check=True)
+
+
+def _build_karaoke_line(words_info: List[Dict]) -> Optional[Tuple[float, float, str, List[Dict]]]:
+    """
+    Trả về (line_start_rel_s, line_end_rel_s, full_text, words_info)
+    words_info: list dict có keys: word, start_rel, end_rel (relative to clip_start, seconds)
+    """
+    if not words_info:
+        return None
+    line_start = words_info[0]["start_rel"]
+    line_end = words_info[-1]["end_rel"]
+    full_text = " ".join(w["word"] for w in words_info)
+    return (line_start, line_end, full_text, words_info)
+
+
+def create_subtitles_with_ffmpeg(
+    transcript_segments: list,
+    clip_start: float,
+    clip_end: float,
+    clip_video_path: str,
+    output_path: str,
+    max_words: int = 5
+) -> None:
+    """
+    Tạo ASS karaoke (mỗi dòng 1 event) và render bằng ffmpeg.
+    - transcript_segments: list các dict {"word": str, "start": float, "end": float}
+    - clip_start, clip_end: thời gian clip (giây)
+    - clip_video_path, output_path: đường dẫn file
+    - max_words: tối đa từ trên 1 dòng
+    """
+
+    temp_dir = os.path.dirname(output_path) or "."
+    os.makedirs(temp_dir, exist_ok=True)
     subtitle_path = os.path.join(temp_dir, "temp_subtitles.ass")
 
-    clip_segments = [segment for segment in transcript_segments
-                     if segment.get("start") is not None
-                     and segment.get("end") is not None
-                     and segment.get("end") > clip_start
-                     and segment.get("start") < clip_end
-                     ]
+    # Lọc segments nằm trong clip
+    clip_segments = [
+        segment for segment in transcript_segments
+        if segment.get("start") is not None
+           and segment.get("end") is not None
+           and segment.get("end") > clip_start
+           and segment.get("start") < clip_end
+    ]
 
-    subtitles = []
-    current_words = []
-    current_start = None
-    current_end = None
+    # Gom thành dòng theo max_words
+    subtitles_lines: List[List[Dict]] = []
+    current_line_words_info: List[Dict] = []
 
     for segment in clip_segments:
-        word = segment.get("word", "").strip()
+        word = (segment.get("word") or "").strip()
         seg_start = segment.get("start")
         seg_end = segment.get("end")
 
         if not word or seg_start is None or seg_end is None:
             continue
 
+        # relative thời gian (so với clip_start)
         start_rel = max(0.0, seg_start - clip_start)
         end_rel = max(0.0, seg_end - clip_start)
 
         if end_rel <= 0:
             continue
 
-        if not current_words:
-            current_start = start_rel
-            current_end = end_rel
-            current_words = [word]
-        elif len(current_words) >= max_words:
-            subtitles.append(
-                (current_start, current_end, ' '.join(current_words)))
-            current_words = [word]
-            current_start = start_rel
-            current_end = end_rel
+        word_info = {
+            "word": word,
+            "start": seg_start,
+            "end": seg_end,
+            "start_rel": start_rel,
+            "end_rel": end_rel
+        }
+
+        if not current_line_words_info:
+            current_line_words_info.append(word_info)
+        elif len(current_line_words_info) >= max_words:
+            subtitles_lines.append(current_line_words_info)
+            current_line_words_info = [word_info]
         else:
-            current_words.append(word)
-            current_end = end_rel
+            current_line_words_info.append(word_info)
 
-    if current_words:
-        subtitles.append(
-            (current_start, current_end, ' '.join(current_words)))
+    if current_line_words_info:
+        subtitles_lines.append(current_line_words_info)
 
+    # --- Tạo file ASS với 1 style karaoke duy nhất ---
     subs = pysubs2.SSAFile()
 
     subs.info["WrapStyle"] = 0
@@ -209,37 +329,70 @@ def create_subtitles_with_ffmpeg(transcript_segments: list, clip_start: float, c
     subs.info["PlayResY"] = 1920
     subs.info["ScriptType"] = "v4.00+"
 
-    style_name = "Default"
-    new_style = pysubs2.SSAStyle()
-    new_style.fontname = "Anton"
-    new_style.fontsize = 140
-    new_style.primarycolor = pysubs2.Color(255, 255, 255)
-    new_style.outline = 2.0
-    new_style.shadow = 2.0
-    new_style.shadowcolor = pysubs2.Color(0, 0, 0, 128)
-    new_style.alignment = 2
-    new_style.marginl = 50
-    new_style.marginr = 50
-    new_style.marginv = 50
-    new_style.spacing = 0.0
+    # Style karaoke: primary = highlight (vàng), secondary = un-highlight (trắng)
+    k_style = pysubs2.SSAStyle()
+    k_style.fontname = "Anton"
+    k_style.fontsize = 140
+    k_style.primarycolor = pysubs2.Color(255, 255, 0)      # màu vàng (highlight)
+    k_style.secondarycolor = pysubs2.Color(255, 255, 255)  # màu trắng (chưa đến lượt)
+    k_style.outline = 2.0
+    k_style.shadow = 2.0
+    k_style.shadowcolor = pysubs2.Color(0, 0, 0, 128)
+    k_style.alignment = 2        # bottom-center
+    k_style.marginl = 50
+    k_style.marginr = 50
+    k_style.marginv = 150
+    k_style.spacing = 0.0
+    subs.styles["Karaoke"] = k_style
 
-    subs.styles[style_name] = new_style
+    # --- Tạo event cho từng dòng: CHỈ MỘT event karaoke mỗi dòng ---
+    for words_info in subtitles_lines:
+        built = _build_karaoke_line(words_info)
+        if not built:
+            continue
+        line_start, line_end, full_text, words = built
 
-    for i, (start, end, text) in enumerate(subtitles):
-        start_time = pysubs2.make_time(s=start)
-        end_time = pysubs2.make_time(s=end)
-        line = pysubs2.SSAEvent(
-            start=start_time, end=end_time, text=text, style=style_name)
-        subs.events.append(line)
+        # Xây text với \k tags (centiseconds)
+        kara_text_parts: List[str] = []
+        for idx, w in enumerate(words):
+            # duration của từ (end_rel - start_rel) -> centiseconds
+            dur_cs_word = max(1, int(round((w["end_rel"] - w["start_rel"]) * 100)))
+            # escape { and } để tránh phá tag ASS
+            safe_word = w["word"].replace("{", "\\{").replace("}", "\\}")
+            kara_text_parts.append(f"{{\\k{dur_cs_word}}}{safe_word}")
 
+            # xử lý gap giữa từ hiện tại và từ tiếp theo (nếu có)
+            if idx + 1 < len(words):
+                next_w = words[idx + 1]
+                gap = next_w["start_rel"] - w["end_rel"]
+                if gap > 0.001:
+                    dur_cs_gap = max(1, int(round(gap * 100)))
+                    # thêm một ký tự space được điều khiển bằng \k để giữ timing
+                    kara_text_parts.append(f"{{\\k{dur_cs_gap}}} ")
+
+        kara_text = "".join(kara_text_parts)
+
+        fg_start = pysubs2.make_time(s=line_start)
+        fg_end = pysubs2.make_time(s=line_end)
+        fg_event = pysubs2.SSAEvent(start=fg_start, end=fg_end, text=kara_text, style="Karaoke")
+        subs.events.append(fg_event)
+
+    # Lưu file ASS
     subs.save(subtitle_path)
 
-    ffmpeg_cmd = (f"ffmpeg -y -i {clip_video_path} -vf \"ass={subtitle_path}\" "
-                  f"-c:v h264 -preset fast -crf 23 {output_path}")
+    # Render bằng ffmpeg (escape path an toàn)
+    # Sử dụng list args để tránh shell injection
+    vf_arg = f"ass={subtitle_path}"
+    ffmpeg_cmd = [
+        "ffmpeg", "-y",
+        "-i", clip_video_path,
+        "-vf", vf_arg,
+        "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+        "-c:a", "copy",
+        output_path
+    ]
 
-    subprocess.run(ffmpeg_cmd, shell=True, check=True)
-
-
+    subprocess.run(ffmpeg_cmd, check=True)
 
 @app.cls(gpu="L40S", timeout=900, retries=0, scaledown_window=20, secrets=[modal.Secret.from_name("ai-podcast-clipper-secret")], volumes={mount_path: volume})
 class AiPodcastClipper:
@@ -350,7 +503,7 @@ class AiPodcastClipper:
                                     end_time, vertical_mp4_path, subtitle_output_path, max_words=5)
 
 
-        with open(vertical_mp4_path, "rb") as f:
+        with open(subtitle_output_path, "rb") as f:
             res = self.supabase_client.storage.from_(self.supabase_bucket_name).upload(
                 output_s3_key, f
             )
@@ -568,31 +721,3 @@ def main():
     response.raise_for_status()
     result = response.json()
     print(result)
-
-
-
-
-
-
-
-
-     #  This is a podcast video transcript consisting of word, along with each words's start and end time. I am looking to create clips between a minimum of 30 and maximum of 60 seconds long. The clip should never exceed 60 seconds.
-
-    #     Your task is to find and extract stories, or question and their corresponding answers from the transcript.
-    #     Each clip should begin with the question and conclude with the answer.
-    #     It is acceptable for the clip to include a few additional sentences before a question if it aids in contextualizing the question.
-
-    #     Please adhere to the following rules:
-    #     - Ensure that clips do not overlap with one another.
-    #     - Start and end timestamps of the clips should align perfectly with the sentence boundaries in the transcript.
-    #     - Only use the start and end timestamps provided in the input. modifying timestamps is not allowed.
-    #     - Format the output as a list of JSON objects, each representing a clip with 'start' and 'end' timestamps: [{"start": seconds, "end": seconds}, ...clip2, clip3]. The output should always be readable by the python json.loads function.
-    #     - Aim to generate longer clips between 40-60 seconds, and ensure to include as much content from the context as viable.
-
-    #     Avoid including:
-    #     - Moments of greeting, thanking, or saying goodbye.
-    #     - Non-question and answer interactions.
-
-    #     If there are no valid clips to extract, the output should be an empty list [], in JSON format. Also readable by json.loads() in Python.
-
-                                  
