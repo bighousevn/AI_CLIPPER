@@ -428,11 +428,12 @@ class AiPodcastClipper:
         self.supabase_client: Client = create_client(supabase_url, supabase_key)
         print("Created Supabase client.")
 
-    def process_clip(self, base_dir: str, original_video_path: str, start_time: float, end_time: float, clip_index: int, transcript_segments: list):
+    def process_clip(self, base_dir: str, original_video_path: str, start_time: float, end_time: float, clip_index: int, transcript_segments: list, storage_path: str):
         clip_name = f"clip_{clip_index}"
         
-        output_s3_key = f"1111/{clip_name}.mp4"
-        # output_s3_key = "subtitles/output.srt"  # đường dẫn trong bucket
+        # Extract folder from original storage_path (e.g., "user-xxx/uuid-video.mp4" -> "user-xxx")
+        storage_folder = "/".join(storage_path.split("/")[:-1])
+        output_s3_key = f"{storage_folder}/clips/{clip_name}.mp4"
         
       
 
@@ -513,8 +514,6 @@ class AiPodcastClipper:
         #     raise Exception(f"Upload failed: {res['error']}")
         # else:
         #     print("Uploaded to Supabase:", output_s3_key)
-
-
 
 
     def transcribe_video(self, base_dir: str, video_path: str) -> str:
@@ -686,12 +685,12 @@ class AiPodcastClipper:
         print(clip_moments)
 
          # 3. Process clips
-        for index, moment in enumerate(clip_moments[:5]):
+        for index, moment in enumerate(clip_moments[:1]):
             if "start" in moment and "end" in moment:
                 print("Processing clip" + str(index) + " from " +
                       str(moment["start"]) + " to " + str(moment["end"]))
                 self.process_clip( base_dir, video_path,
-                             moment["start"], moment["end"], index, transcript_segments)
+                             moment["start"], moment["end"], index, transcript_segments, storage_path)
 
         if base_dir.exists():
             print(f"Cleaning up temp dir after {base_dir}")

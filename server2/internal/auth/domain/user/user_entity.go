@@ -1,14 +1,17 @@
-package domain
+package user
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 // User is the core entity for a user in our system.
-// It contains only business logic and data, with no dependencies on external frameworks.
 type User struct {
-	ID                       int64
+	ID                       uuid.UUID
 	Username                 string
 	Email                    string
-	PasswordHash             string // Renamed for clarity
+	PasswordHash             string
 	Credits                  int
 	StripeCustomerID         *string
 	RefreshToken             *string
@@ -19,5 +22,5 @@ type User struct {
 	EmailVerificationExpires *time.Time
 	CreatedAt                time.Time
 	UpdatedAt                time.Time
-	DeletedAt                *time.Time // Use nullable time for soft deletes in domain
+	DeletedAt                *time.Time
 }
