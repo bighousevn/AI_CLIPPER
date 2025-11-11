@@ -2,6 +2,7 @@ package http
 
 import (
 	"ai-clipper/server2/internal/file/application"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -222,4 +223,92 @@ func (ctrl *FileController) GetUserClips(c *gin.Context) {
 	}
 
 	ctrl.presenter.RespondSuccess(c, http.StatusOK, clips)
+}
+
+// DownloadClip handles clip download requests
+func (ctrl *FileController) DownloadClip(c *gin.Context) {
+	clipID := c.Param("clip_id")
+	if clipID == "" {
+		ctrl.presenter.RespondError(c, http.StatusBadRequest, "clip_id is required")
+		return
+	}
+
+	// Get authenticated user from context
+	userIDInterface, exists := c.Get("userID")
+	if !exists {
+		ctrl.presenter.RespondError(c, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	userID, ok := userIDInterface.(string)
+	if !ok {
+		if uuidVal, ok := userIDInterface.(interface{ String() string }); ok {
+			userID = uuidVal.String()
+		} else {
+			ctrl.presenter.RespondError(c, http.StatusUnauthorized, "Invalid user data")
+			return
+		}
+	}
+
+	// Execute use case to download clip
+	fileBytes, filePath, err := ctrl.fileUseCase.DownloadClip(clipID, userID)
+	if err != nil {
+		if err.Error() == "unauthorized: clip does not belong to user" {
+			ctrl.presenter.RespondError(c, http.StatusForbidden, err.Error())
+			return
+		}
+		ctrl.presenter.RespondError(c, http.StatusNotFound, err.Error())
+		return
+	}
+
+	// Extract filename from path (e.g., "user-xxx/clips/clip_0.mp4" -> "clip_0.mp4")
+	filename := "clip.mp4"
+	if len(filePath) > 0 {
+		parts := []rune(filePath)
+		lastSlash := -1
+		for i := len(parts) - 1; i >= 0; i-- {
+			if parts[i] == '/' {
+				lastSlash = i
+				break
+			}
+		}
+		if lastSlash >= 0 && lastSlash < len(parts)-1 {
+			filename = string(parts[lastSlash+1:])
+		}
+	}
+
+	// Set headers for file download
+	c.Header("Content-Description", "File Transfer")
+	c.Header("Content-Transfer-Encoding", "binary")
+	c.Header("Content-Disposition", "attachment; filename="+filename)
+	c.Header("Content-Type", "video/mp4")
+	c.Header("Content-Length", fmt.Sprintf("%d", len(fileBytes)))
+
+	// Write file bytes to response
+	c.Data(http.StatusOK, "video/mp4", fileBytes)
+}
+
+// TestListClips is a test endpoint to list clips from storage
+func (ctrl *FileController) TestListClips(c *gin.Context) {
+	// Get folder path from query param
+	folderPath := c.Query("folder")
+	if folderPath == "" {
+		ctrl.presenter.RespondError(c, http.StatusBadRequest, "folder query parameter is required")
+		return
+	}
+
+	log.Printf("Testing list clips from folder: %s", folderPath)
+
+	// Call use case to test listing clips
+	clips, err := ctrl.fileUseCase.TestListClipsFromStorage(folderPath)
+	if err != nil {
+		ctrl.presenter.RespondError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	ctrl.presenter.RespondSuccess(c, http.StatusOK, gin.H{
+		"folder":      folderPath,
+		"clips_count": len(clips),
+		"clips":       clips,
+	})
 }

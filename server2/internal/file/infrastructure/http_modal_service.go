@@ -27,14 +27,8 @@ func NewHTTPModalService(modalURL, modalToken string) *HTTPModalService {
 	}
 }
 
-// ModalResponse represents the response from Modal API
-type ModalResponse struct {
-	ClipPaths []string `json:"clip_paths"`
-	Message   string   `json:"message"`
-}
-
-// ProcessVideo calls Modal endpoint to process video and returns clip paths
-func (s *HTTPModalService) ProcessVideo(storagePath string) ([]string, error) {
+// ProcessVideo calls Modal endpoint to trigger video processing
+func (s *HTTPModalService) ProcessVideo(storagePath string) error {
 	requestBody := map[string]string{
 		"storage_path": storagePath,
 	}
@@ -42,12 +36,12 @@ func (s *HTTPModalService) ProcessVideo(storagePath string) ([]string, error) {
 
 	jsonData, err := json.Marshal(requestBody)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
+		return fmt.Errorf("failed to marshal request: %w", err)
 	}
 
 	req, err := http.NewRequest("POST", s.modalURL, bytes.NewBuffer(jsonData))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -57,23 +51,16 @@ func (s *HTTPModalService) ProcessVideo(storagePath string) ([]string, error) {
 
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to call Modal API: %w", err)
+		return fmt.Errorf("failed to call Modal API: %w", err)
 	}
 	defer resp.Body.Close()
 
 	log.Printf("Modal API response status: %d", resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
-		return nil, fmt.Errorf("Modal API returned error status: %d", resp.StatusCode)
+		return fmt.Errorf("Modal API returned error status: %d", resp.StatusCode)
 	}
 
-	// Parse response to get clip paths
-	var modalResp ModalResponse
-	if err := json.NewDecoder(resp.Body).Decode(&modalResp); err != nil {
-		log.Printf("Failed to decode Modal response: %v", err)
-		return nil, fmt.Errorf("failed to decode Modal response: %w", err)
-	}
-
-	log.Printf("Modal API call successful, received %d clips for storage path: %s", len(modalResp.ClipPaths), storagePath)
-	return modalResp.ClipPaths, nil
+	log.Printf("Modal API call successful for storage path: %s", storagePath)
+	return nil
 }

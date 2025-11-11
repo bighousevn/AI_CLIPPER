@@ -13,6 +13,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	storage "github.com/supabase-community/storage-go"
@@ -52,9 +53,10 @@ func main() {
 		RefreshExpiry: time.Hour * 24 * 30, // 30 days
 	}
 	tokenGenerator := authInfra.NewJWTTokenGenerator(jwtConfig)
+	emailSender := authInfra.NewSMTPEmailService()
 
 	// Auth Module - Application
-	authUseCase := authApp.NewAuthUseCase(userRepo, passwordHasher, tokenGenerator)
+	authUseCase := authApp.NewAuthUseCase(userRepo, passwordHasher, tokenGenerator, emailSender)
 
 	// Auth Module - Interfaces
 	authPresenter := authHttp.NewAuthPresenter()
@@ -94,9 +96,25 @@ func main() {
 	filePresenter := fileHttp.NewFilePresenter()
 	fileController := fileHttp.NewFileController(fileUseCase, filePresenter)
 
-	// 5. Initialize Gin Engine
+	// 5. Initialize Gin Engine and Cors configuration
 	log.Println("Initializing web server...")
 	router := gin.Default()
+	r := gin.Default()
+	if err := r.SetTrustedProxies(nil); err != nil {
+		panic(err)
+	}
+	// CORS configuration
+	feURL := os.Getenv("FE_URL")
+	if feURL == "" {
+		feURL = "http://localhost:3000" // Default for local development
+	}
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{feURL},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Authorization"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
 
 	// 6. Register Routes
 	authHttp.NewAuthRouter(router, authController, tokenGenerator)

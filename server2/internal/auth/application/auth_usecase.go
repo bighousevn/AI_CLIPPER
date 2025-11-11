@@ -29,15 +29,16 @@ type AuthUseCase struct {
 	userRepo       userDomain.UserRepository
 	hasher         PasswordHasher
 	tokenGenerator TokenGenerator
-	// emailSender    EmailSender // To be added for sending emails
+	emailSender    EmailSender
 }
 
 // NewAuthUseCase creates a new instance of AuthUseCase.
-func NewAuthUseCase(userRepo userDomain.UserRepository, hasher PasswordHasher, tokenGenerator TokenGenerator) IAuthUseCase {
+func NewAuthUseCase(userRepo userDomain.UserRepository, hasher PasswordHasher, tokenGenerator TokenGenerator, emailSender EmailSender) IAuthUseCase {
 	return &AuthUseCase{
 		userRepo:       userRepo,
 		hasher:         hasher,
 		tokenGenerator: tokenGenerator,
+		emailSender:    emailSender,
 	}
 }
 
@@ -90,9 +91,13 @@ func (uc *AuthUseCase) Register(ctx context.Context, req RegisterRequest) (*Regi
 		return nil, errors.New("failed to save user")
 	}
 
-	// TODO: Send verification email
-	// verificationLink := fmt.Sprintf("http://localhost:3000/verify?token=%s", verificationToken)
-	// uc.emailSender.Send(...)
+	// Send verification email
+	if err := uc.emailSender.SendVerificationEmail(userToSave.Email, userToSave.Username, verificationToken); err != nil {
+		log.Printf("WARNING: Failed to send verification email to %s: %v", userToSave.Email, err)
+		// Don't fail registration if email fails, user can request resend later
+	} else {
+		log.Printf("Verification email sent successfully to %s", userToSave.Email)
+	}
 
 	response := &RegisterResponse{
 		ID:       userToSave.ID,
@@ -209,9 +214,13 @@ func (uc *AuthUseCase) ForgotPassword(ctx context.Context, req ForgotPasswordReq
 		return errors.New("failed to save reset token")
 	}
 
-	// TODO: Send password reset email
-	// resetLink := fmt.Sprintf("http://localhost:3000/reset-password?token=%s", token)
-	// uc.emailSender.Send(...)
+	// Send password reset email
+	if err := uc.emailSender.SendPasswordResetEmail(user.Email, user.Username, token); err != nil {
+		log.Printf("WARNING: Failed to send password reset email to %s: %v", user.Email, err)
+		// Don't fail the request if email fails
+	} else {
+		log.Printf("Password reset email sent successfully to %s", user.Email)
+	}
 
 	return nil
 }

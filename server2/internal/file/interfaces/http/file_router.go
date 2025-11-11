@@ -32,6 +32,12 @@ func NewFileRouter(
 
 			// Get user's clips
 			authenticated.GET("/clips/me", fileController.GetUserClips)
+
+			// Download clip by ID
+			authenticated.GET("/clips/:clip_id/download", fileController.DownloadClip)
+
+			// Test endpoint to list clips from storage (for debugging)
+			authenticated.GET("/test/list-clips", fileController.TestListClips)
 		}
 	}
 }

@@ -62,3 +62,59 @@ func (s *SupabaseStorageService) GetURL(filePath string) (string, error) {
 	resp := s.client.GetPublicUrl(s.bucketName, filePath)
 	return resp.SignedURL, nil
 }
+
+// GetSignedURL returns a signed URL for downloading a file with expiration
+func (s *SupabaseStorageService) GetSignedURL(filePath string, expiresIn int) (string, error) {
+	resp, err := s.client.CreateSignedUrl(s.bucketName, filePath, expiresIn)
+	if err != nil {
+		return "", fmt.Errorf("failed to create signed URL: %w", err)
+	}
+	return resp.SignedURL, nil
+}
+
+// Download downloads a file from Supabase Storage
+func (s *SupabaseStorageService) Download(filePath string) ([]byte, error) {
+	fileBytes, err := s.client.DownloadFile(s.bucketName, filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to download file from Supabase: %w", err)
+	}
+	return fileBytes, nil
+}
+
+// ListFiles lists all files in a folder
+func (s *SupabaseStorageService) ListFiles(folderPath string) ([]string, error) {
+	// List files in the folder
+	files, err := s.client.ListFiles(s.bucketName, folderPath, storage.FileSearchOptions{
+		Limit:  100,
+		Offset: 0,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list files from Supabase: %w", err)
+	}
+
+	// Extract file paths (only actual files, not directories)
+	var filePaths []string
+	for _, file := range files {
+		// Skip if it's a directory or empty name
+		if file.Name == "" {
+			continue
+		}
+
+		// Skip Supabase placeholder files
+		if file.Name == ".emptyFolderPlaceholder" {
+			continue
+		}
+
+		// Check if it's a file (has ID means it's a real file)
+		// Directories in Supabase don't have ID
+		if file.Id == "" {
+			continue
+		}
+
+		// Build full path: folderPath/filename
+		fullPath := fmt.Sprintf("%s/%s", folderPath, file.Name)
+		filePaths = append(filePaths, fullPath)
+	}
+
+	return filePaths, nil
+}
