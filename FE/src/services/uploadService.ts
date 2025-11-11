@@ -16,6 +16,7 @@
 // }
 import axiosClient from "~/lib/axiosClient";
 import type { AxiosError } from "axios";
+import type { UploadFile } from "~/interfaces/uploadfile";
 
 export const uploadFile = async (file: File) => {
     const formData = new FormData();
@@ -29,3 +30,15 @@ export const uploadFile = async (file: File) => {
         throw new Error(error.response?.data?.message || "Upload failed");
     }
 };
+export const processingFile = async (file: UploadFile) => {
+    try {
+        const processRes = await axiosClient.post(`/files/${file.id}/process`);
+        return processRes.data; // return the response data if needed
+    } catch (err) {
+        const error = err as AxiosError<{ message?: string }>;
+        if (error.response?.status === 400) {
+            throw new Error(error.response?.data?.message || "Upload failed");
+        }
+        throw error;
+    }
+}
