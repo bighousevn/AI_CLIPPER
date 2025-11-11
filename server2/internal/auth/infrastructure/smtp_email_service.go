@@ -12,8 +12,6 @@ type SMTPEmailService struct {
 	smtpPort     string
 	smtpUsername string
 	smtpPassword string
-	fromEmail    string
-	frontendURL  string
 }
 
 // NewSMTPEmailService creates a new SMTP email service
@@ -23,14 +21,16 @@ func NewSMTPEmailService() *SMTPEmailService {
 		smtpPort:     os.Getenv("SMTP_PORT"),
 		smtpUsername: os.Getenv("SMTP_USERNAME"),
 		smtpPassword: os.Getenv("SMTP_PASSWORD"),
-		fromEmail:    os.Getenv("SMTP_FROM_EMAIL"),
-		frontendURL:  os.Getenv("FRONTEND_URL"),
 	}
 }
 
 // SendVerificationEmail sends an email verification link
 func (s *SMTPEmailService) SendVerificationEmail(to, username, verificationToken string) error {
-	verificationLink := fmt.Sprintf("%s/verify?token=%s", s.frontendURL, verificationToken)
+	frontendURL := os.Getenv("FRONTEND_URL")
+	if frontendURL == "" {
+		frontendURL = "http://localhost:3000"
+	}
+	verificationLink := fmt.Sprintf("%s/verify?token=%s", frontendURL, verificationToken)
 
 	subject := "Verify Your Email - AI Clipper"
 	body := fmt.Sprintf(`
@@ -75,7 +75,11 @@ func (s *SMTPEmailService) SendVerificationEmail(to, username, verificationToken
 
 // SendPasswordResetEmail sends a password reset link
 func (s *SMTPEmailService) SendPasswordResetEmail(to, username, resetToken string) error {
-	resetLink := fmt.Sprintf("%s/reset-password?token=%s", s.frontendURL, resetToken)
+	frontendURL := os.Getenv("FRONTEND_URL")
+	if frontendURL == "" {
+		frontendURL = "http://localhost:3000"
+	}
+	resetLink := fmt.Sprintf("%s/reset-password?token=%s", frontendURL, resetToken)
 
 	subject := "Reset Your Password - AI Clipper"
 	body := fmt.Sprintf(`
@@ -123,8 +127,11 @@ func (s *SMTPEmailService) SendPasswordResetEmail(to, username, resetToken strin
 
 // sendEmail sends an email using SMTP
 func (s *SMTPEmailService) sendEmail(to, subject, body string) error {
+	// Get from email or use username as default
+	fromEmail := s.smtpUsername
+
 	// Build email message
-	message := fmt.Sprintf("From: %s\r\n", s.fromEmail)
+	message := fmt.Sprintf("From: %s\r\n", fromEmail)
 	message += fmt.Sprintf("To: %s\r\n", to)
 	message += fmt.Sprintf("Subject: %s\r\n", subject)
 	message += "MIME-Version: 1.0\r\n"
@@ -137,7 +144,7 @@ func (s *SMTPEmailService) sendEmail(to, subject, body string) error {
 
 	// Send email
 	addr := fmt.Sprintf("%s:%s", s.smtpHost, s.smtpPort)
-	err := smtp.SendMail(addr, auth, s.fromEmail, []string{to}, []byte(message))
+	err := smtp.SendMail(addr, auth, fromEmail, []string{to}, []byte(message))
 	if err != nil {
 		return fmt.Errorf("failed to send email: %w", err)
 	}

@@ -99,8 +99,8 @@ func main() {
 	// 5. Initialize Gin Engine and Cors configuration
 	log.Println("Initializing web server...")
 	router := gin.Default()
-	r := gin.Default()
-	if err := r.SetTrustedProxies(nil); err != nil {
+
+	if err := router.SetTrustedProxies(nil); err != nil {
 		panic(err)
 	}
 	// CORS configuration
@@ -108,7 +108,7 @@ func main() {
 	if feURL == "" {
 		feURL = "http://localhost:3000" // Default for local development
 	}
-	r.Use(cors.New(cors.Config{
+	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{feURL},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Authorization"},
