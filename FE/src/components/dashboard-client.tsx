@@ -117,7 +117,7 @@ export function DashboardClient({
                                         <Loader2 className="mr-2 h-4 w-4  animate-spin" /> Uploading</> : "Upload and Generate Clips"}
                                 </Button>
                             </div>
-                            {/* {uploadedFiles.length > 0 && (
+                            {uploadedFiles.length > 0 && (
                                 <div className="pt-6">
                                     <div className="mb-2 flex items-center justify-between">
                                         <h3 className="text-md mb-2 font-medium">Queue status</h3>
@@ -187,7 +187,7 @@ export function DashboardClient({
                                         </Table>
                                     </div>
                                 </div>
-                            )} */}
+                            )}
                         </CardContent>
 
                     </Card>
