@@ -20,6 +20,7 @@ import { Badge } from "./ui/badge";
 import type { Clip } from "~/interfaces/clip";
 import type { UploadFile } from "~/interfaces/uploadfile";
 import { ClipDisplay } from "./clip-display";
+import { uploadFile } from "~/services/uploadService";
 
 export function DashboardClient({
     uploadedFiles,
@@ -44,13 +45,17 @@ export function DashboardClient({
         setFiles(acceptedFiles);
     };
     const handleUpload = async () => {
+        setUploading(true);
         if (files.length === 0) return;
         const file = files[0];
-        setUploading(true);
 
         try {
+            //delay 3 seconds
+            await new Promise((resolve) => setTimeout(resolve, 3000));
             // upload file to s3
-
+            if (file) {
+                uploadFile(file);
+            }
         }
         catch (error) {
             console.log(error);
@@ -106,19 +111,13 @@ export function DashboardClient({
                                 <DropzoneContent />
                             </Dropzone>
                             <div className="flex items-start justify-between">
-                                {/* <div>
-                                    {files.length > 0 && (
-                                        <div className="space-u-1 text-sm">
-                                            <p className="font-medium">selected file</p>
-                                        </div>
-                                    )}
-                                </div> */}
+
                                 <Button className="mt-4" disabled={uploading || files.length === 0} onClick={handleUpload}>
                                     {uploading ? <>
                                         <Loader2 className="mr-2 h-4 w-4  animate-spin" /> Uploading</> : "Upload and Generate Clips"}
                                 </Button>
                             </div>
-                            {uploadedFiles.length > 0 && (
+                            {/* {uploadedFiles.length > 0 && (
                                 <div className="pt-6">
                                     <div className="mb-2 flex items-center justify-between">
                                         <h3 className="text-md mb-2 font-medium">Queue status</h3>
@@ -188,7 +187,7 @@ export function DashboardClient({
                                         </Table>
                                     </div>
                                 </div>
-                            )}
+                            )} */}
                         </CardContent>
 
                     </Card>
