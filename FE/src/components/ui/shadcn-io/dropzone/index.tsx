@@ -122,7 +122,7 @@ export const DropzoneContent = ({
 }: DropzoneContentProps) => {
   const { src } = useDropzoneContext();
 
-  if (!src) {
+  if (!src || src.length === 0) {
     return null;
   }
 
@@ -142,6 +142,7 @@ export const DropzoneContent = ({
           )} and ${src.length - maxLabelItems} more`
           : new Intl.ListFormat('en').format(src.map((file) => file.name))}
       </p>
+
       <p className="w-full text-wrap text-muted-foreground text-xs">
         Drag and drop or click to replace
       </p>
@@ -160,7 +161,7 @@ export const DropzoneEmptyState = ({
 }: DropzoneEmptyStateProps) => {
   const { src, accept, maxSize, minSize, maxFiles } = useDropzoneContext();
 
-  if (src) {
+  if (src && src.length > 0) {
     return null;
   }
 

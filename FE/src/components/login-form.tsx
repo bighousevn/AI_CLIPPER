@@ -30,14 +30,15 @@ export function LoginForm({
             setSubmitting(true);
             setError(null);
             const res = await login(data);
-
-
-            // Redirect
-            router.push("/dashboard");
+            if (res) {
+                router.push("/dashboard");
+            }
         } catch (err) {
             const error = err as AxiosError<{ message?: string }>;
-            throw new Error(error.response?.data?.message || "Invalid email or password.");
-        } finally {
+            const message = error.response?.data?.message || "Invalid email or password.";
+            setError(message);
+        }
+        finally {
             setSubmitting(false);
         }
     };
