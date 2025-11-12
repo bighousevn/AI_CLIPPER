@@ -42,7 +42,7 @@ func (s *SMTPEmailService) SendVerificationEmail(to, username, verificationToken
         .container { max-width: 600px; margin: 0 auto; padding: 20px; }
         .header { background-color: #4F46E5; color: white; padding: 20px; text-align: center; }
         .content { padding: 20px; background-color: #f9f9f9; }
-        .button { display: inline-block; padding: 12px 30px; background-color: #4F46E5; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+        .button { display: inline-block; padding: 12px 30px; background-color: #ffffff; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
         .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
     </style>
 </head>
@@ -58,7 +58,7 @@ func (s *SMTPEmailService) SendVerificationEmail(to, username, verificationToken
                 <a href="%s" class="button">Verify Email</a>
             </p>
             <p>Or copy and paste this link into your browser:</p>
-            <p style="word-break: break-all; color: #4F46E5;">%s</p>
+            <p style="word-break: break-all; color: #ffffff;">%s</p>
             <p>This verification link will expire in 24 hours.</p>
             <p>If you didn't create an account with AI Clipper, please ignore this email.</p>
         </div>
@@ -91,7 +91,7 @@ func (s *SMTPEmailService) SendPasswordResetEmail(to, username, resetToken strin
         .container { max-width: 600px; margin: 0 auto; padding: 20px; }
         .header { background-color: #4F46E5; color: white; padding: 20px; text-align: center; }
         .content { padding: 20px; background-color: #f9f9f9; }
-        .button { display: inline-block; padding: 12px 30px; background-color: #4F46E5; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+        .button { display: inline-block; padding: 12px 30px; background-color: #ffffff; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
         .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
         .warning { background-color: #FEF3C7; border-left: 4px solid #F59E0B; padding: 10px; margin: 15px 0; }
     </style>
@@ -108,7 +108,7 @@ func (s *SMTPEmailService) SendPasswordResetEmail(to, username, resetToken strin
                 <a href="%s" class="button">Reset Password</a>
             </p>
             <p>Or copy and paste this link into your browser:</p>
-            <p style="word-break: break-all; color: #4F46E5;">%s</p>
+            <p style="word-break: break-all; color: #ffffff;">%s</p>
             <div class="warning">
                 <strong>Security Notice:</strong> This link will expire in 1 hour for security reasons.
             </div>

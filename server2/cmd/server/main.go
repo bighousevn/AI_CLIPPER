@@ -8,6 +8,7 @@ import (
 	fileApp "ai-clipper/server2/internal/file/application"
 	fileInfra "ai-clipper/server2/internal/file/infrastructure"
 	fileHttp "ai-clipper/server2/internal/file/interfaces/http"
+	"ai-clipper/server2/internal/middleware"
 	"fmt"
 	"log"
 	"os"
@@ -100,6 +101,9 @@ func main() {
 	log.Println("Initializing web server...")
 	router := gin.Default()
 
+	// Attach HTTP logger middleware (structured logs to logs/http.log)
+	router.Use(middleware.LoggerMiddleware())
+
 	if err := router.SetTrustedProxies(nil); err != nil {
 		panic(err)
 	}
@@ -115,6 +119,7 @@ func main() {
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
+	router.Use(middleware.RateLimitingMiddleware())
 
 	// 6. Register Routes
 	authHttp.NewAuthRouter(router, authController, tokenGenerator)
@@ -124,6 +129,7 @@ func main() {
 		c.JSON(200, gin.H{"message": "pong"})
 	})
 
+	go middleware.CleanupClients()
 	// 7. Start Server
 	port := os.Getenv("PORT")
 	if port == "" {
