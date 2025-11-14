@@ -1,92 +1,64 @@
-name: Deploy Swagger UI to GitHub Pages
+# .github/workflows/deploy-swagger.yml
+name: Deploy Swagger to GitHub Pages
 
 on:
+  # Chạy workflow này mỗi khi có push lên nhánh main
   push:
     branches:
-      - main # or master, depending on your default branch
-  workflow_dispatch:
+      - main # Hoặc master tùy theo tên nhánh chính của bạn
+
+# Phân quyền cho job để có thể ghi lên GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
 jobs:
-  deploy:
+  deploy-swagger-ui:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21' # Đảm bảo phiên bản Go khớp với dự án của bạn
 
-    - name: Install swagger-ui-dist
-      run: npm install swagger-ui-dist
+      - name: Install swag
+        run: go install github.com/swaggo/swag/cmd/swag@latest
 
-    - name: Prepare Swagger UI files
-      run: |
-        mkdir -p swagger-gh-pages
-        cp -r node_modules/swagger-ui-dist/* swagger-gh-pages/
-        # Copy your generated swagger.json from server2/docs/
-        cp server2/docs/swagger.json swagger-gh-pages/swagger.json
+      - name: Generate Swagger files
+        run: |
+          # Di chuyển vào thư mục server2 và chạy swag init
+          # -g chỉ định file main của server để swag bắt đầu quét
+          cd server2
+          ~/go/bin/swag init -g cmd/server/main.go -o ./docs
 
-        # Create a simple index.html to load the swagger UI
-        echo "<!DOCTYPE html>" > swagger-gh-pages/index.html
-        echo "<html>" >> swagger-gh-pages/index.html
-        echo "<head>" >> swagger-gh-pages/index.html
-        echo "  <title>Swagger UI</title>" >> swagger-gh-pages/index.html
-        echo "  <link rel=\"stylesheet\" type=\"text/css\" href=\"swagger-ui.css\" />" >> swagger-gh-pages/index.html
-        echo "  <link rel=\"icon\" type=\"image/png\" href=\"favicon-32x32.png\" sizes=\"32x32\" />" >> swagger-gh-pages/index.html
-        echo "  <link rel=\"icon\" type=\"image/png\" href=\"favicon-16x16.png\" sizes=\"16x16\" />" >> swagger-gh-pages/index.html
-        echo "  <style>" >> swagger-gh-pages/index.html
-        echo "    html" >> swagger-gh-pages/index.html
-        echo "    {" >> swagger-gh-pages/index.html
-        echo "      box-sizing: border-box;" >> swagger-gh-pages/index.html
-        echo "      overflow: -moz-scrollbars-vertical;" >> swagger-gh-pages/index.html
-        echo "      overflow-y: scroll;" >> swagger-gh-pages/index.html
-        echo "    }" >> swagger-gh-pages/index.html
-        echo "" >> swagger-gh-pages/index.html
-        echo "    *, *:before, *:after" >> swagger-gh-pages/index.html
-        echo "    {" >> swagger-gh-pages/index.html
-        echo "      box-sizing: inherit;" >> swagger-gh-pages/index.html
-        echo "    }" >> swagger-gh-pages/index.html
-        echo "" >> swagger-gh-pages/index.html
-        echo "    body" >> swagger-gh-pages/index.html
-        echo "    {" >> swagger-gh-pages/index.html
-        echo "      margin:0;" >> swagger-gh-pages/index.html
-        echo "      background: #fafafa;" >> swagger-gh-pages/index.html
-        echo "    }" >> swagger-gh-pages/index.html
-        echo "  </style>" >> swagger-gh-pages/index.html
-        echo "</head>" >> swagger-gh-pages/index.html
-        echo "<body>" >> swagger-gh-pages/index.html
-        echo "  <div id=\"swagger-ui"></div>" >> swagger-gh-pages/index.html
-        echo "  <script src=\"swagger-ui-bundle.js\" charset=\"UTF-8\"></script>" >> swagger-gh-pages/index.html
-        echo "  <script src=\"swagger-ui-standalone-preset.js\" charset=\"UTF-8\"></script>" >> swagger-gh-pages/index.html
-        echo "  <script>" >> swagger-gh-pages/index.html
-        echo "    window.onload = function() {" >> swagger-gh-pages/index.html
-        echo "      // Begin Swagger UI call region" >> swagger-gh-pages/index.html
-        echo "      const ui = SwaggerUIBundle({" >> swagger-gh-pages/index.html
-        echo "        url: \"swagger.json\", # IMPORTANT: Ensure this path matches the name/location of your API definition file" >> swagger-gh-pages/index.html
-        echo "        dom_id: '#swagger-ui'," >> swagger-gh-pages/index.html
-        echo "        deepLinking: true," >> swagger-gh-pages/index.html
-        echo "        presets: [" >> swagger-gh-pages/index.html
-        echo "          SwaggerUIBundle.presets.apis," >> swagger-gh-pages/index.html
-        echo "          SwaggerUIStandalonePreset" >> swagger-gh-pages/index.html
-        echo "        ]," >> swagger-gh-pages/index.html
-        echo "        plugins: [" >> swagger-gh-pages/index.html
-        echo "          SwaggerUIBundle.plugins.DownloadUrl" >> swagger-gh-pages/index.html
-        echo "        ]," >> swagger-gh-pages/index.html
-        echo "        layout: \"StandaloneLayout\"" >> swagger-gh-pages/index.html
-        echo "      });" >> swagger-gh-pages/index.html
-        echo "      // End Swagger UI call region" >> swagger-gh-pages/index.html
-        echo "      window.ui = ui;" >> swagger-gh-pages/index.html
-        echo "    };" >> swagger-gh-pages/index.html
-        echo "  </script>" >> swagger-gh-pages/index.html
-        echo "</body>" >> swagger-gh-pages/index.html
-        echo "</html>" >> swagger-gh-pages/index.html
+      - name: Prepare Swagger UI for deployment
+        run: |
+          # Tạo một thư mục public để chứa trang web tĩnh
+          mkdir -p public
 
-    - name: Deploy to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v3
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./swagger-gh-pages
-        publish_branch: gh-pages
+          # Tải về phiên bản Swagger UI mong muốn và giải nén vào thư mục public
+          SWAGGER_UI_VERSION="v5.17.14"
+          wget https://github.com/swagger-api/swagger-ui/archive/refs/tags/${SWAGGER_UI_VERSION}.zip
+          unzip ${SWAGGER_UI_VERSION}.zip
+          cp -r swagger-ui-${SWAGGER_UI_VERSION}/dist/* public/
+
+          # Sao chép file swagger.json vừa tạo vào thư mục public
+          cp server2/docs/swagger.json public/
+
+          # Chỉnh sửa file index.html của Swagger UI để nó trỏ đến file swagger.json cục bộ
+          # Thay vì URL mặc định của Petstore
+          sed -i 's|url: "https://petstore.swagger.io/v2/swagger.json"|url: "./swagger.json"|' public/index.html
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Tải lên thư mục public
+          path: ./public
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
