@@ -1,13 +1,10 @@
-# .github/workflows/deploy-swagger.yml
 name: Deploy Swagger to GitHub Pages
 
 on:
-  # Chạy workflow này mỗi khi có push lên nhánh main
   push:
     branches:
-      - main # Hoặc master tùy theo tên nhánh chính của bạn
+      - main
 
-# Phân quyền cho job để có thể ghi lên GitHub Pages
 permissions:
   contents: read
   pages: write
@@ -23,34 +20,27 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21' # Đảm bảo phiên bản Go khớp với dự án của bạn
+          go-version: "1.25"
 
       - name: Install swag
         run: go install github.com/swaggo/swag/cmd/swag@latest
 
       - name: Generate Swagger files
         run: |
-          # Di chuyển vào thư mục server2 và chạy swag init
-          # -g chỉ định file main của server để swag bắt đầu quét
           cd server2
           ~/go/bin/swag init -g cmd/server/main.go -o ./docs
 
       - name: Prepare Swagger UI for deployment
         run: |
-          # Tạo một thư mục public để chứa trang web tĩnh
           mkdir -p public
 
-          # Tải về phiên bản Swagger UI mong muốn và giải nén vào thư mục public
           SWAGGER_UI_VERSION="v5.17.14"
           wget https://github.com/swagger-api/swagger-ui/archive/refs/tags/${SWAGGER_UI_VERSION}.zip
           unzip ${SWAGGER_UI_VERSION}.zip
-          cp -r swagger-ui-${SWAGGER_UI_VERSION}/dist/* public/
+          cp -r swagger-ui-*/dist/* public/
 
-          # Sao chép file swagger.json vừa tạo vào thư mục public
           cp server2/docs/swagger.json public/
 
-          # Chỉnh sửa file index.html của Swagger UI để nó trỏ đến file swagger.json cục bộ
-          # Thay vì URL mặc định của Petstore
           sed -i 's|url: "https://petstore.swagger.io/v2/swagger.json"|url: "./swagger.json"|' public/index.html
 
       - name: Upload artifact
