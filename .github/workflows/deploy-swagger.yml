@@ -27,8 +27,13 @@ jobs:
 
       - name: Generate Swagger files
         run: |
+          # Di chuyển vào thư mục server2 và chạy swag init
+          # -g chỉ định file main của server để swag bắt đầu quét
           cd server2
           ~/go/bin/swag init -g cmd/server/main.go -o ./docs
+
+      - name: Debug - Show content of swagger.json
+        run: cat server2/docs/swagger.json
 
       - name: Prepare Swagger UI for deployment
         run: |
@@ -41,7 +46,7 @@ jobs:
 
           cp server2/docs/swagger.json public/
 
-          sed -i 's|url: "https://petstore.swagger.io/v2/swagger.json"|url: "./swagger.json"|' public/index.html
+          sed -i 's|https://petstore.swagger.io[^"]*|./swagger.json|g' public/index.html
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
