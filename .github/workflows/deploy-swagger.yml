@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,46 +15,57 @@ jobs:
   deploy-swagger-ui:
     runs-on: ubuntu-latest
     steps:
+      # 1. Checkout code
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
+      # 2. Setup Go
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: "1.25"
 
+      # 3. Install swag
       - name: Install swag
         run: go install github.com/swaggo/swag/cmd/swag@latest
 
+      # 4. Generate swagger files
       - name: Generate Swagger files
         run: |
-          # Di chuyển vào thư mục server2 và chạy swag init
-          # -g chỉ định file main của server để swag bắt đầu quét
           cd server2
           ~/go/bin/swag init -g cmd/server/main.go -o ./docs
+          ls -l ./docs  # debug
 
-      - name: Debug - Show content of swagger.json
-        run: cat server2/docs/swagger.json
-
+      # 5. Prepare Swagger UI
       - name: Prepare Swagger UI for deployment
         run: |
           mkdir -p public
 
           SWAGGER_UI_VERSION="v5.17.14"
           wget https://github.com/swagger-api/swagger-ui/archive/refs/tags/${SWAGGER_UI_VERSION}.zip
-          unzip ${SWAGGER_UI_VERSION}.zip
+          unzip -q ${SWAGGER_UI_VERSION}.zip
           cp -r swagger-ui-*/dist/* public/
 
+          # Copy generated swagger.json
           cp server2/docs/swagger.json public/
 
-          sed -i 's|https://petstore.swagger.io[^"]*|./swagger.json|g' public/index.html
+          # Replace any petstore references in all public files
+          find public -type f -print0 | while IFS= read -r -d '' f; do
+            sed -E -i 's#https?://[^"'\''[:space:]]*petstore[^"'\''[:space:]]*#./swagger.json#g' "$f" || true
+            sed -E -i 's#url[[:space:]]*:[[:space:]]*["'\'']?https?://[^"'\''[:space:]]*#url: "./swagger.json"#g' "$f" || true
+          done
 
+          echo "Verify replacements:"
+          grep -RIn "petstore" public || true
+          grep -RIn "swagger.json" public/index.html || true
+
+      # 6. Upload public folder as artifact
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Tải lên thư mục public
           path: ./public
 
+      # 7. Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
