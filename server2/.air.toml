@@ -22,7 +22,7 @@ tmp_dir = "tmp"
   poll = false
   poll_interval = 0
   post_cmd = []
-  pre_cmd = []
+  pre_cmd = ["if exist tmp rmdir /s /q tmp"]
   # Add a 60s delay before re-running.
   rerun = true
   rerun_delay = 60000

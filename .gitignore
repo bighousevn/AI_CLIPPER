@@ -60,3 +60,11 @@ sfd_face.pth
 .venv
 server.exe
 __pycache__/
+
+tmp
+*.log
+logs
+*.exe
+
+server2/docs/swagger.json
+server2/docs/swagger.yaml

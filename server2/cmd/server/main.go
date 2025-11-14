@@ -18,8 +18,26 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	storage "github.com/supabase-community/storage-go"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+
+	_ "ai-clipper/server2/docs"
 )
 
+// @title AI Clipper API
+// @version 1.0
+// @description This is the API for the AI Clipper application.
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name API Support
+// @contact.url http://www.swagger.io/support
+// @contact.email support@swagger.io
+
+// @license.name Apache 2.0
+// @license.url http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host localhost:8080
+// @BasePath /
 func main() {
 	// 1. Load Environment Variables
 	if err := godotenv.Load("../../.env"); err != nil {
@@ -108,6 +126,7 @@ func main() {
 		panic(err)
 	}
 	// CORS configuration
+
 	feURL := os.Getenv("FE_URL")
 	if feURL == "" {
 		feURL = "http://localhost:3000" // Default for local development
@@ -122,8 +141,11 @@ func main() {
 	router.Use(middleware.RateLimitingMiddleware())
 
 	// 6. Register Routes
+
 	authHttp.NewAuthRouter(router, authController, tokenGenerator)
 	fileHttp.NewFileRouter(router, fileController, tokenGenerator)
+
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	router.GET("/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{"message": "pong"})

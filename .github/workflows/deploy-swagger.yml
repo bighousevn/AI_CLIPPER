@@ -1,0 +1,92 @@
+name: Deploy Swagger UI to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main # or master, depending on your default branch
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+
+    - name: Install swagger-ui-dist
+      run: npm install swagger-ui-dist
+
+    - name: Prepare Swagger UI files
+      run: |
+        mkdir -p swagger-gh-pages
+        cp -r node_modules/swagger-ui-dist/* swagger-gh-pages/
+        # Copy your generated swagger.json from server2/docs/
+        cp server2/docs/swagger.json swagger-gh-pages/swagger.json
+
+        # Create a simple index.html to load the swagger UI
+        echo "<!DOCTYPE html>" > swagger-gh-pages/index.html
+        echo "<html>" >> swagger-gh-pages/index.html
+        echo "<head>" >> swagger-gh-pages/index.html
+        echo "  <title>Swagger UI</title>" >> swagger-gh-pages/index.html
+        echo "  <link rel=\"stylesheet\" type=\"text/css\" href=\"swagger-ui.css\" />" >> swagger-gh-pages/index.html
+        echo "  <link rel=\"icon\" type=\"image/png\" href=\"favicon-32x32.png\" sizes=\"32x32\" />" >> swagger-gh-pages/index.html
+        echo "  <link rel=\"icon\" type=\"image/png\" href=\"favicon-16x16.png\" sizes=\"16x16\" />" >> swagger-gh-pages/index.html
+        echo "  <style>" >> swagger-gh-pages/index.html
+        echo "    html" >> swagger-gh-pages/index.html
+        echo "    {" >> swagger-gh-pages/index.html
+        echo "      box-sizing: border-box;" >> swagger-gh-pages/index.html
+        echo "      overflow: -moz-scrollbars-vertical;" >> swagger-gh-pages/index.html
+        echo "      overflow-y: scroll;" >> swagger-gh-pages/index.html
+        echo "    }" >> swagger-gh-pages/index.html
+        echo "" >> swagger-gh-pages/index.html
+        echo "    *, *:before, *:after" >> swagger-gh-pages/index.html
+        echo "    {" >> swagger-gh-pages/index.html
+        echo "      box-sizing: inherit;" >> swagger-gh-pages/index.html
+        echo "    }" >> swagger-gh-pages/index.html
+        echo "" >> swagger-gh-pages/index.html
+        echo "    body" >> swagger-gh-pages/index.html
+        echo "    {" >> swagger-gh-pages/index.html
+        echo "      margin:0;" >> swagger-gh-pages/index.html
+        echo "      background: #fafafa;" >> swagger-gh-pages/index.html
+        echo "    }" >> swagger-gh-pages/index.html
+        echo "  </style>" >> swagger-gh-pages/index.html
+        echo "</head>" >> swagger-gh-pages/index.html
+        echo "<body>" >> swagger-gh-pages/index.html
+        echo "  <div id=\"swagger-ui"></div>" >> swagger-gh-pages/index.html
+        echo "  <script src=\"swagger-ui-bundle.js\" charset=\"UTF-8\"></script>" >> swagger-gh-pages/index.html
+        echo "  <script src=\"swagger-ui-standalone-preset.js\" charset=\"UTF-8\"></script>" >> swagger-gh-pages/index.html
+        echo "  <script>" >> swagger-gh-pages/index.html
+        echo "    window.onload = function() {" >> swagger-gh-pages/index.html
+        echo "      // Begin Swagger UI call region" >> swagger-gh-pages/index.html
+        echo "      const ui = SwaggerUIBundle({" >> swagger-gh-pages/index.html
+        echo "        url: \"swagger.json\", # IMPORTANT: Ensure this path matches the name/location of your API definition file" >> swagger-gh-pages/index.html
+        echo "        dom_id: '#swagger-ui'," >> swagger-gh-pages/index.html
+        echo "        deepLinking: true," >> swagger-gh-pages/index.html
+        echo "        presets: [" >> swagger-gh-pages/index.html
+        echo "          SwaggerUIBundle.presets.apis," >> swagger-gh-pages/index.html
+        echo "          SwaggerUIStandalonePreset" >> swagger-gh-pages/index.html
+        echo "        ]," >> swagger-gh-pages/index.html
+        echo "        plugins: [" >> swagger-gh-pages/index.html
+        echo "          SwaggerUIBundle.plugins.DownloadUrl" >> swagger-gh-pages/index.html
+        echo "        ]," >> swagger-gh-pages/index.html
+        echo "        layout: \"StandaloneLayout\"" >> swagger-gh-pages/index.html
+        echo "      });" >> swagger-gh-pages/index.html
+        echo "      // End Swagger UI call region" >> swagger-gh-pages/index.html
+        echo "      window.ui = ui;" >> swagger-gh-pages/index.html
+        echo "    };" >> swagger-gh-pages/index.html
+        echo "  </script>" >> swagger-gh-pages/index.html
+        echo "</body>" >> swagger-gh-pages/index.html
+        echo "</html>" >> swagger-gh-pages/index.html
+
+    - name: Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./swagger-gh-pages
+        publish_branch: gh-pages
