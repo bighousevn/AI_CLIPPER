@@ -20,7 +20,7 @@ import { Badge } from "./ui/badge";
 import type { Clip } from "~/interfaces/clip";
 import type { UploadFile } from "~/interfaces/uploadfile";
 import { ClipDisplay } from "./clip-display";
-import { uploadFile } from "~/services/uploadService";
+import { processingFile, uploadFile } from "~/services/uploadService";
 
 export function DashboardClient({
     uploadedFiles,
@@ -50,11 +50,14 @@ export function DashboardClient({
         const file = files[0];
 
         try {
-            //delay 3 seconds
-            await new Promise((resolve) => setTimeout(resolve, 3000));
+            // //delay 3 seconds
+            // await new Promise((resolve) => setTimeout(resolve, 3000));
             // upload file to s3
             if (file) {
-                uploadFile(file);
+                const res = await uploadFile(file);
+                console.log(res);
+                processingFile(res.data);
+
             }
         }
         catch (error) {
@@ -117,7 +120,7 @@ export function DashboardClient({
                                         <Loader2 className="mr-2 h-4 w-4  animate-spin" /> Uploading</> : "Upload and Generate Clips"}
                                 </Button>
                             </div>
-                            {/* {uploadedFiles.length > 0 && (
+                            {uploadedFiles.length > 0 && (
                                 <div className="pt-6">
                                     <div className="mb-2 flex items-center justify-between">
                                         <h3 className="text-md mb-2 font-medium">Queue status</h3>
@@ -187,7 +190,7 @@ export function DashboardClient({
                                         </Table>
                                     </div>
                                 </div>
-                            )} */}
+                            )}
                         </CardContent>
 
                     </Card>

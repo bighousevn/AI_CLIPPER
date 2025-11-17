@@ -9,6 +9,7 @@ import { ModeToggle } from "../mode-toggle";
 import { useAuth } from "~/hooks/useAuth";
 import { Loader2 } from "lucide-react";
 import { logout } from "~/services/authService";
+import { redirect } from "next/navigation";
 
 const NavHeader = () => {
     const { user, loading } = useAuth();
@@ -20,7 +21,7 @@ const NavHeader = () => {
             </div>
         );
 
-    if (!user) return null;
+    if (!user) redirect("/login");
     return <header className="bg-background sticky top-0 z-10 flex justify-center border-b">
         <div className="container flex items-center justify-between px-4 py-2">
             <Link href="/dashboard" className="flex items-center">
