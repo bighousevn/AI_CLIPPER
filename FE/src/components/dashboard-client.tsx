@@ -28,13 +28,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { useForm } from "react-hook-form";
-
-
-
-
-
-
-
+import { Checkbox } from "./ui/checkbox";
+import type { ClipConfig } from "~/interfaces/ClipConfig";
 
 export function DashboardClient({
     uploadedFiles,
@@ -50,15 +45,14 @@ export function DashboardClient({
     const router = useRouter();
 
 
-    type ClipConfigForm = z.infer<typeof ClipConfigSchema>;
 
-    const form = useForm<ClipConfigForm>({
+    const form = useForm<ClipConfig>({
         resolver: zodResolver(ClipConfigSchema),
         defaultValues: {
             prompt: "",
-            numberOfClips: 3,
-            duration: 10,
+            clipCount: 3,
             aspectRatio: "9:16",
+            subtitle: false,
         },
     });
     const handleRefresh = async () => {
@@ -200,7 +194,7 @@ export function DashboardClient({
                                                 {/* Number of clips */}
                                                 <FormField
                                                     control={form.control}
-                                                    name="numberOfClips"
+                                                    name="clipCount"
                                                     render={({ field }) => (
                                                         <FormItem>
                                                             <FormLabel>Number of clips</FormLabel>
@@ -219,27 +213,7 @@ export function DashboardClient({
                                                     )}
                                                 />
 
-                                                {/* Duration */}
-                                                <FormField
-                                                    control={form.control}
-                                                    name="duration"
-                                                    render={({ field }) => (
-                                                        <FormItem>
-                                                            <FormLabel>Clip duration (seconds)</FormLabel>
-                                                            <FormControl>
-                                                                <input
-                                                                    type="number"
-                                                                    className="input"
-                                                                    min={3}
-                                                                    max={60}
-                                                                    {...field}
-                                                                    onChange={(e) => field.onChange(Number(e.target.value))}
-                                                                />
-                                                            </FormControl>
-                                                            <FormMessage />
-                                                        </FormItem>
-                                                    )}
-                                                />
+
 
                                                 {/* Aspect Ratio */}
                                                 <FormField
@@ -260,6 +234,26 @@ export function DashboardClient({
                                                                     <SelectItem value="1:1">1:1 (Square)</SelectItem>
                                                                 </SelectContent>
                                                             </Select>
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                                {/* toggle subtitle */}
+                                                <FormField
+                                                    control={form.control}
+                                                    name="subtitle"
+                                                    render={({ field }) => (
+                                                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                                                            <FormControl>
+                                                                <Checkbox
+                                                                    checked={field.value}
+                                                                    onCheckedChange={field.onChange}
+                                                                />
+                                                            </FormControl>
+                                                            <div className="space-y-1 leading-none">
+                                                                <FormLabel>
+                                                                    Include Subtitle
+                                                                </FormLabel>
+                                                            </div>
                                                         </FormItem>
                                                     )}
                                                 />
