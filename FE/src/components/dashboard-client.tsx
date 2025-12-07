@@ -21,6 +21,20 @@ import type { Clip } from "~/interfaces/clip";
 import type { UploadFile } from "~/interfaces/uploadfile";
 import { ClipDisplay } from "./clip-display";
 import { processingFile, uploadFile } from "~/services/uploadService";
+import { DropzoneVideoPreview } from "./DropzoneVideoPreview";
+import type z from "zod";
+import { ClipConfigSchema } from "~/schemas/clipConfigSchema";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { useForm } from "react-hook-form";
+
+
+
+
+
+
+
 
 export function DashboardClient({
     uploadedFiles,
@@ -35,6 +49,18 @@ export function DashboardClient({
     const [refreshing, setRefreshing] = useState(false);
     const router = useRouter();
 
+
+    type ClipConfigForm = z.infer<typeof ClipConfigSchema>;
+
+    const form = useForm<ClipConfigForm>({
+        resolver: zodResolver(ClipConfigSchema),
+        defaultValues: {
+            prompt: "",
+            numberOfClips: 3,
+            duration: 10,
+            aspectRatio: "9:16",
+        },
+    });
     const handleRefresh = async () => {
         setRefreshing(true);
         router.refresh();
@@ -44,28 +70,52 @@ export function DashboardClient({
     const handleDrop = (acceptedFiles: File[]) => {
         setFiles(acceptedFiles);
     };
+    // const handleUpload = async () => {
+    //     setUploading(true);
+    //     if (files.length === 0) return;
+    //     const file = files[0];
+
+    //     try {
+    //         // //delay 3 seconds
+    //         // await new Promise((resolve) => setTimeout(resolve, 3000));
+    //         // upload file to s3
+    //         if (file) {
+    //             const res = await uploadFile(file);
+    //             console.log(res);
+    //             processingFile(res.data);
+
+    //         }
+    //     }
+    //     catch (error) {
+    //         console.log(error);
+    //     } finally {
+    //         setUploading(false);
+    //     }
+    // }
     const handleUpload = async () => {
         setUploading(true);
-        if (files.length === 0) return;
-        const file = files[0];
 
         try {
-            // //delay 3 seconds
-            // await new Promise((resolve) => setTimeout(resolve, 3000));
-            // upload file to s3
-            if (file) {
-                const res = await uploadFile(file);
-                console.log(res);
-                processingFile(res.data);
+            const config = form.getValues();
 
-            }
-        }
-        catch (error) {
-            console.log(error);
+            const file = files[0];
+            if (!file) return;
+
+            const uploaded = await uploadFile(file);
+
+            // await processingFile({
+            //     fileId: uploaded.data.id,
+            //     ...config,
+            // });
+
+            console.log("Uploaded & processing with config:", config);
+
+        } catch (e) {
+            console.error(e);
         } finally {
             setUploading(false);
         }
-    }
+    };
 
     return (
         <div className="mx-auto flex max-w-5xl flex-col space-y-6 px-4 py-8">
@@ -111,8 +161,115 @@ export function DashboardClient({
 
                             >
                                 <DropzoneEmptyState />
-                                <DropzoneContent />
+                                <DropzoneContent>
+                                    <DropzoneVideoPreview />
+                                </DropzoneContent>
                             </Dropzone>
+                            {files.length > 0 && (
+                                <Card className="mt-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                                    <CardHeader>
+                                        <CardTitle>Video Configuration</CardTitle>
+                                        <CardDescription>
+                                            Customize how clips will be generated.
+                                        </CardDescription>
+                                    </CardHeader>
+
+                                    <CardContent>
+                                        <Form {...form}>
+                                            <form className="space-y-4">
+
+                                                {/* Prompt */}
+                                                <FormField
+                                                    control={form.control}
+                                                    name="prompt"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Prompt</FormLabel>
+                                                            <FormControl>
+                                                                <textarea
+                                                                    className="w-full min-h-[80px] resize-none rounded-md border p-3"
+                                                                    placeholder="Describe the tone, topic, or highlight you want..."
+                                                                    {...field}
+                                                                />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+
+                                                {/* Number of clips */}
+                                                <FormField
+                                                    control={form.control}
+                                                    name="numberOfClips"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Number of clips</FormLabel>
+                                                            <FormControl>
+                                                                <input
+                                                                    type="number"
+                                                                    className="input"
+                                                                    min={1}
+                                                                    max={10}
+                                                                    {...field}
+                                                                    onChange={(e) => field.onChange(Number(e.target.value))}
+                                                                />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+
+                                                {/* Duration */}
+                                                <FormField
+                                                    control={form.control}
+                                                    name="duration"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Clip duration (seconds)</FormLabel>
+                                                            <FormControl>
+                                                                <input
+                                                                    type="number"
+                                                                    className="input"
+                                                                    min={3}
+                                                                    max={60}
+                                                                    {...field}
+                                                                    onChange={(e) => field.onChange(Number(e.target.value))}
+                                                                />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+
+                                                {/* Aspect Ratio */}
+                                                <FormField
+                                                    control={form.control}
+                                                    name="aspectRatio"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Aspect Ratio</FormLabel>
+                                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                                <FormControl>
+                                                                    <SelectTrigger>
+                                                                        <SelectValue placeholder="Select ratio" />
+                                                                    </SelectTrigger>
+                                                                </FormControl>
+                                                                <SelectContent>
+                                                                    <SelectItem value="9:16">9:16 (TikTok, Reels)</SelectItem>
+                                                                    <SelectItem value="16:9">16:9 (YouTube)</SelectItem>
+                                                                    <SelectItem value="1:1">1:1 (Square)</SelectItem>
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </FormItem>
+                                                    )}
+                                                />
+
+                                            </form>
+                                        </Form>
+                                    </CardContent>
+                                </Card>
+                            )}
+
                             <div className="flex items-start justify-between">
 
                                 <Button className="mt-4" disabled={uploading || files.length === 0} onClick={handleUpload}>

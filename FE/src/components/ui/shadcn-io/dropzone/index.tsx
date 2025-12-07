@@ -99,7 +99,7 @@ export const Dropzone = ({
   );
 };
 
-const useDropzoneContext = () => {
+export const useDropzoneContext = () => {
   const context = useContext(DropzoneContext);
 
   if (!context) {
