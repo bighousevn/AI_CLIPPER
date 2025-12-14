@@ -4,6 +4,7 @@ import "~/styles/globals.css";
 import { type Metadata } from "next";
 import { Geist } from "next/font/google";
 import { ThemeProvider } from "~/components/theme-provider";
+import { Providers } from "./providers";
 
 export const metadata: Metadata = {
   title: "Podcast Clipper",
@@ -22,13 +23,15 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geist.variable}`} suppressHydrationWarning >
       <body>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >{children}
-        </ThemeProvider>
+        <Providers>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >{children}
+          </ThemeProvider>
+        </Providers>
       </body>
     </html>
   );

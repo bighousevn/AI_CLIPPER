@@ -10,6 +10,6 @@ export const ClipConfigSchema = z.object({
         .number()
         .min(1, "At least 1 clip")
         .max(10, "Max 10 clips"),
-    aspectRatio: z.enum(["9:16", "16:9", "1:1"]),
+    aspectRatio: z.enum(["9:16", "16:9", "1:1", ""]),
     subtitle: z.boolean(),
 });

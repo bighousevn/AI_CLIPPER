@@ -29,7 +29,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { useForm } from "react-hook-form";
 import { Checkbox } from "./ui/checkbox";
-import type { ClipConfig } from "~/interfaces/ClipConfig";
+import type { ClipConfig } from "~/interfaces/clipConfig";
+import { useUploadClip } from "~/hooks/useUpload";
 
 export function DashboardClient({
     uploadedFiles,
@@ -43,8 +44,6 @@ export function DashboardClient({
     const [uploading, setUploading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const router = useRouter();
-
-
 
     const form = useForm<ClipConfig>({
         resolver: zodResolver(ClipConfigSchema),
@@ -64,51 +63,15 @@ export function DashboardClient({
     const handleDrop = (acceptedFiles: File[]) => {
         setFiles(acceptedFiles);
     };
-    // const handleUpload = async () => {
-    //     setUploading(true);
-    //     if (files.length === 0) return;
-    //     const file = files[0];
+    const { mutate } = useUploadClip();
 
-    //     try {
-    //         // //delay 3 seconds
-    //         // await new Promise((resolve) => setTimeout(resolve, 3000));
-    //         // upload file to s3
-    //         if (file) {
-    //             const res = await uploadFile(file);
-    //             console.log(res);
-    //             processingFile(res.data);
-
-    //         }
-    //     }
-    //     catch (error) {
-    //         console.log(error);
-    //     } finally {
-    //         setUploading(false);
-    //     }
-    // }
     const handleUpload = async () => {
         setUploading(true);
-
-        try {
-            const config = form.getValues();
-
-            const file = files[0];
-            if (!file) return;
-
-            const uploaded = await uploadFile(file);
-
-            // await processingFile({
-            //     fileId: uploaded.data.id,
-            //     ...config,
-            // });
-
-            console.log("Uploaded & processing with config:", config);
-
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setUploading(false);
+        if (files.length > 0) {
+            const item = files[0] as File;
+            await mutate({ file: item, config: form.getValues() });
         }
+        setUploading(false);
     };
 
     return (
@@ -271,77 +234,78 @@ export function DashboardClient({
                                         <Loader2 className="mr-2 h-4 w-4  animate-spin" /> Uploading</> : "Upload and Generate Clips"}
                                 </Button>
                             </div>
-                            {uploadedFiles.length > 0 && (
-                                <div className="pt-6">
-                                    <div className="mb-2 flex items-center justify-between">
-                                        <h3 className="text-md mb-2 font-medium">Queue status</h3>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={handleRefresh}
-                                            disabled={refreshing}
-                                        >
-                                            {refreshing && (
-                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                            )}
-                                            Refresh
-                                        </Button>
-                                    </div>
-                                    <div className="max-h-[300px] overflow-auto rounded-md border">
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead>File</TableHead>
-                                                    <TableHead>Uploaded</TableHead>
-                                                    <TableHead>Status</TableHead>
-                                                    <TableHead>Clips created</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {uploadedFiles.map((item) => (
-                                                    <TableRow key={item.id}>
-                                                        <TableCell className="max-w-xs truncate font-medium">
-                                                            {item.filename}
-                                                        </TableCell>
-                                                        <TableCell className="text-muted-foreground text-sm">
-                                                            {new Date(item.createdAt).toLocaleDateString()}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {item.status === "queued" && (
-                                                                <Badge variant="outline">Queued</Badge>
-                                                            )}
-                                                            {item.status === "processing" && (
-                                                                <Badge variant="outline">Processing</Badge>
-                                                            )}
-                                                            {item.status === "processed" && (
-                                                                <Badge variant="outline">Processed</Badge>
-                                                            )}
-                                                            {item.status === "no credits" && (
-                                                                <Badge variant="destructive">No credits</Badge>
-                                                            )}
-                                                            {item.status === "failed" && (
-                                                                <Badge variant="destructive">Failed</Badge>
-                                                            )}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {item.clipsCount > 0 ? (
-                                                                <span>
-                                                                    {item.clipsCount} clip
-                                                                    {item.clipsCount !== 1 ? "s" : ""}
-                                                                </span>
-                                                            ) : (
-                                                                <span className="text-muted-foreground">
-                                                                    No clips yet
-                                                                </span>
-                                                            )}
-                                                        </TableCell>
+                            {
+                                uploadedFiles.length > 0 && (
+                                    <div className="pt-6">
+                                        <div className="mb-2 flex items-center justify-between">
+                                            <h3 className="text-md mb-2 font-medium">Queue status</h3>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={handleRefresh}
+                                                disabled={refreshing}
+                                            >
+                                                {refreshing && (
+                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                )}
+                                                Refresh
+                                            </Button>
+                                        </div>
+                                        <div className="max-h-[300px] overflow-auto rounded-md border">
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>File</TableHead>
+                                                        <TableHead>Uploaded</TableHead>
+                                                        <TableHead>Status</TableHead>
+                                                        <TableHead>Clips created</TableHead>
                                                     </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {uploadedFiles.map((item) => (
+                                                        <TableRow key={item.id}>
+                                                            <TableCell className="max-w-xs truncate font-medium">
+                                                                {item.filename}
+                                                            </TableCell>
+                                                            <TableCell className="text-muted-foreground text-sm">
+                                                                {new Date(item.createdAt).toLocaleDateString()}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {item.status === "queued" && (
+                                                                    <Badge variant="outline">Queued</Badge>
+                                                                )}
+                                                                {item.status === "processing" && (
+                                                                    <Badge variant="outline">Processing</Badge>
+                                                                )}
+                                                                {item.status === "processed" && (
+                                                                    <Badge variant="outline">Processed</Badge>
+                                                                )}
+                                                                {item.status === "no credits" && (
+                                                                    <Badge variant="destructive">No credits</Badge>
+                                                                )}
+                                                                {item.status === "failed" && (
+                                                                    <Badge variant="destructive">Failed</Badge>
+                                                                )}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {item.clipsCount > 0 ? (
+                                                                    <span>
+                                                                        {item.clipsCount} clip
+                                                                        {item.clipsCount !== 1 ? "s" : ""}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-muted-foreground">
+                                                                        No clips yet
+                                                                    </span>
+                                                                )}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
                                     </div>
-                                </div>
-                            )}
+                                )}
                         </CardContent>
 
                     </Card>
