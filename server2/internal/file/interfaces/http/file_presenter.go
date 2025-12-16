@@ -11,7 +11,7 @@ func NewFilePresenter() *FilePresenter {
 }
 
 // RespondSuccess sends a success response
-func (p *FilePresenter) RespondSuccess(c *gin.Context, statusCode int, data interface{}) {
+func (p *FilePresenter) RespondSuccess(c *gin.Context, statusCode int, data any) {
 	c.JSON(statusCode, gin.H{
 		"success": true,
 		"data":    data,

@@ -22,9 +22,16 @@ from typing import List, Dict, Tuple, Optional
 
 from pydantic import BaseModel
 
+class VideoConfig(BaseModel):
+    prompt: str
+    clip_count: int
+    target_width: int
+    target_height: int
+    subtitle: bool
 
 class ProcessVideoRequest(BaseModel):
     storage_path: str
+    config : VideoConfig
     
 
 
@@ -51,10 +58,8 @@ mount_path = "/root/.cache/torch"
 
 auth_scheme = HTTPBearer()
 
-def create_vertical_video(tracks, scores, pyframes_path, pyavi_path, audio_path, output_path, framerate=25):
-    target_width = 1080
-    target_height = 1920
- 
+def create_vertical_video(tracks, scores, pyframes_path, pyavi_path, audio_path, output_path, framerate=25, target_width=1080, target_height=1920):
+
     flist = glob.glob(os.path.join(pyframes_path, "*.jpg"))
     flist.sort()
 
@@ -261,13 +266,7 @@ def create_subtitles_with_ffmpeg(
     output_path: str,
     max_words: int = 5
 ) -> None:
-    """
-    Tạo ASS karaoke (mỗi dòng 1 event) và render bằng ffmpeg.
-    - transcript_segments: list các dict {"word": str, "start": float, "end": float}
-    - clip_start, clip_end: thời gian clip (giây)
-    - clip_video_path, output_path: đường dẫn file
-    - max_words: tối đa từ trên 1 dòng
-    """
+  
 
     temp_dir = os.path.dirname(output_path) or "."
     os.makedirs(temp_dir, exist_ok=True)
@@ -428,7 +427,7 @@ class AiPodcastClipper:
         self.supabase_client: Client = create_client(supabase_url, supabase_key)
         print("Created Supabase client.")
 
-    def process_clip(self, base_dir: str, original_video_path: str, start_time: float, end_time: float, clip_index: int, transcript_segments: list, storage_path: str):
+    def process_clip(self, base_dir: str, original_video_path: str, start_time: float, end_time: float, clip_index: int, transcript_segments: list, storage_path: str, config: VideoConfig ):
         clip_name = f"clip_{clip_index}"
         
         # Extract folder from original storage_path (e.g., "user-xxx/uuid-video.mp4" -> "user-xxx")
@@ -494,17 +493,21 @@ class AiPodcastClipper:
 
         cvv_start_time = time.time()
         create_vertical_video(
-            tracks, scores, pyframes_path, pyavi_path, audio_path, vertical_mp4_path
+            tracks, scores, pyframes_path, pyavi_path, audio_path, vertical_mp4_path, target_width=config.target_width, target_height=config.target_height
         )
         cvv_end_time = time.time()
         print(
             f"Clip {clip_index} vertical video creation time: {cvv_end_time - cvv_start_time:.2f} seconds")
+        
 
-        create_subtitles_with_ffmpeg(transcript_segments, start_time,
+        if config.subtitle:
+            create_subtitles_with_ffmpeg(transcript_segments, start_time,
                                     end_time, vertical_mp4_path, subtitle_output_path, max_words=5)
+            upload_path = subtitle_output_path
+        else:
+            upload_path = vertical_mp4_path
 
-
-        with open(subtitle_output_path, "rb") as f:
+        with open(upload_path, "rb") as f:
             res = self.supabase_client.storage.from_(self.supabase_bucket_name).upload(
                 output_s3_key, f
             )
@@ -554,49 +557,30 @@ class AiPodcastClipper:
         return json.dumps(segments)
     
                                 
-    def identify_moments(self, transcript: dict):
-        user_query = "football predicting match outcomes"
-        # prompt_content=f"""
-        # This is a podcast video transcript consisting of words, along with each word's start and end time. I am looking to create clips based on a specific topic provided by the user.
+    def identify_moments(self, transcript: dict, prompt: str):
 
-        # The user is specifically interested in moments related to: "{user_query}"
+        prompt_content=f"""
+        This is a podcast video transcript consisting of words, along with each word's start and end time. I am looking to create clips based on a specific topic provided by the user.
 
-        # Your task is to find and extract segments from the transcript that are relevant to the user's topic: "{user_query}". These segments could be stories, discussions, questions and answers, or significant mentions related to the topic.
+        The user is specifically interested in moments related to: "{prompt}"
 
-        # Each extracted clip must adhere strictly to the following rules:
-        # - The content must be directly relevant to the user's topic: "{user_query}".
-        # - Clip duration must be between a minimum of 30 seconds and a maximum of 60 seconds. Clips must never exceed 60 seconds.
-        # - Ensure that clips do not overlap with one another.
-        # - Start and end timestamps of the clips must align perfectly with the word boundaries in the transcript provided. Only use the start and end timestamps provided in the input; modifying timestamps is not allowed.
-        # - Format the output STRICTLY as a list of JSON objects, each representing a clip with 'start' and 'end' timestamps in seconds: [{{"start": seconds, "end": seconds}}, ...clip2, clip3]. The output must be readable by the python json.loads function.
-        # - Aim to generate longer clips (closer to 40-60 seconds) that capture a complete thought or segment related to the user's topic, including relevant context if necessary.
-        # Avoid including:
-        # - Moments of greeting, thanking, or saying goodbye unless directly relevant to the user's topic.
-        # - Segments that are irrelevant to the user's topic: "{user_query}".
+        Your task is to find and extract segments from the transcript that are relevant to the user's topic: "{prompt}". These segments could be stories, discussions, questions and answers, or significant mentions related to the topic.
 
-        # If there are no valid clips relevant to "{user_query}" that meet all the criteria (especially duration), the output must be an empty list [], in JSON format, readable by json.loads() in Python.
-
-        # The transcript is as follows:\n\n""" + str(transcript)
-        
-        prompt_content="""This is a podcast video transcript consisting of word, along with each words's start and end time. I am looking to create clips between a minimum of 30 and maximum of 60 seconds long. The clip should never exceed 60 seconds.
-
-        Your task is to find and extract stories, or question and their corresponding answers from the transcript.
-        Each clip should begin with the question and conclude with the answer.
-        It is acceptable for the clip to include a few additional sentences before a question if it aids in contextualizing the question.
-
-        Please adhere to the following rules:
+        Each extracted clip must adhere strictly to the following rules:
+        - The content must be directly relevant to the user's topic: "{prompt}".
+        - Clip duration must be between a minimum of 30 seconds and a maximum of 60 seconds. Clips must never exceed 60 seconds.
         - Ensure that clips do not overlap with one another.
-        - Start and end timestamps of the clips should align perfectly with the sentence boundaries in the transcript.
-        - Only use the start and end timestamps provided in the input. modifying timestamps is not allowed.
-        - Format the output as a list of JSON objects, each representing a clip with 'start' and 'end' timestamps: [{"start": seconds, "end": seconds}, ...clip2, clip3]. The output should always be readable by the python json.loads function.
-        - Aim to generate longer clips between 40-60 seconds, and ensure to include as much content from the context as viable.
-
+        - Start and end timestamps of the clips must align perfectly with the word boundaries in the transcript provided. Only use the start and end timestamps provided in the input; modifying timestamps is not allowed.
+        - Format the output STRICTLY as a list of JSON objects, each representing a clip with 'start' and 'end' timestamps in seconds: [{{"start": seconds, "end": seconds}}, ...clip2, clip3]. The output must be readable by the python json.loads function.
+        - Aim to generate longer clips (closer to 40-60 seconds) that capture a complete thought or segment related to the user's topic, including relevant context if necessary.
         Avoid including:
-        - Moments of greeting, thanking, or saying goodbye.
-        - Non-question and answer interactions.
+        - Moments of greeting, thanking, or saying goodbye unless directly relevant to the user's topic.
+        - Segments that are irrelevant to the user's topic: "{prompt}".
 
-        If there are no valid clips to extract, the output should be an empty list [], in JSON format. Also readable by json.loads() in Python.
+        If there are no valid clips relevant to "{prompt}" that meet all the criteria (especially duration), the output must be an empty list [], in JSON format, readable by json.loads() in Python.
+
         The transcript is as follows:\n\n""" + str(transcript)
+
                                   
        # --- Retry Logic ---
         max_retries = 3
@@ -643,8 +627,21 @@ class AiPodcastClipper:
 
     @modal.fastapi_endpoint(method="POST")
     def process_video(self, request: ProcessVideoRequest, token: HTTPAuthorizationCredentials = Depends(auth_scheme)):
-            
+        
+        api_secret = os.environ.get("API_SECRET")
+        if api_secret is None:
+             print("Warning: API_SECRET environment variable is not set. Skipping token validation.")
+        elif token.credentials != api_secret:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect Bearer token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
         storage_path = request.storage_path
+        video_config = request.config
+        print(f"Received request to process video at storage path: {storage_path} with config: {video_config}")
+
         run_id = str(uuid.uuid4())
         base_dir = pathlib.Path(f"/tmp/{run_id}")
         base_dir.mkdir(parents=True, exist_ok=True)
@@ -669,7 +666,7 @@ class AiPodcastClipper:
         
         # 2. Identify moments for clips
         print("Identifying clip moments")
-        identified_moments_raw = self.identify_moments(transcript_segments)
+        identified_moments_raw = self.identify_moments(transcript_segments, video_config.prompt)
         
         cleaned_json_string = identified_moments_raw.strip()
         if cleaned_json_string.startswith("```json"):
@@ -685,12 +682,12 @@ class AiPodcastClipper:
         print(clip_moments)
 
          # 3. Process clips
-        for index, moment in enumerate(clip_moments[:1]):
+        for index, moment in enumerate(clip_moments[:video_config.clip_count]):
             if "start" in moment and "end" in moment:
                 print("Processing clip" + str(index) + " from " +
                       str(moment["start"]) + " to " + str(moment["end"]))
                 self.process_clip( base_dir, video_path,
-                             moment["start"], moment["end"], index, transcript_segments, storage_path)
+                             moment["start"], moment["end"], index, transcript_segments, storage_path, video_config)
 
         if base_dir.exists():
             print(f"Cleaning up temp dir after {base_dir}")
@@ -707,7 +704,14 @@ def main():
     url = ai_podcast_clipper.process_video.get_web_url()                 
 
     payload = {
-        "storage_path": "test/aaaa.mp4"
+        "storage_path": "test/aaaa.mp4",
+        "config": {
+            "prompt": "funny moments",
+            "clip_count": 3,
+            "target_width": 1080,
+            "target_height": 1920,
+            "subtitle": True
+        }
     }
 
     headers = {
@@ -720,3 +724,26 @@ def main():
     response.raise_for_status()
     result = response.json()
     print(result)
+
+
+
+
+ # prompt_content="""This is a podcast video transcript consisting of word, along with each words's start and end time. I am looking to create clips between a minimum of 30 and maximum of 60 seconds long. The clip should never exceed 60 seconds.
+
+        # Your task is to find and extract stories, or question and their corresponding answers from the transcript.
+        # Each clip should begin with the question and conclude with the answer.
+        # It is acceptable for the clip to include a few additional sentences before a question if it aids in contextualizing the question.
+
+        # Please adhere to the following rules:
+        # - Ensure that clips do not overlap with one another.
+        # - Start and end timestamps of the clips should align perfectly with the sentence boundaries in the transcript.
+        # - Only use the start and end timestamps provided in the input. modifying timestamps is not allowed.
+        # - Format the output as a list of JSON objects, each representing a clip with 'start' and 'end' timestamps: [{"start": seconds, "end": seconds}, ...clip2, clip3]. The output should always be readable by the python json.loads function.
+        # - Aim to generate longer clips between 40-60 seconds, and ensure to include as much content from the context as viable.
+
+        # Avoid including:
+        # - Moments of greeting, thanking, or saying goodbye.
+        # - Non-question and answer interactions.
+
+        # If there are no valid clips to extract, the output should be an empty list [], in JSON format. Also readable by json.loads() in Python.
+        # The transcript is as follows:\n\n""" + str(transcript)

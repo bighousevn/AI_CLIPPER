@@ -60,9 +60,6 @@ func main() {
 	}
 	modalService := fileInfra.NewHTTPModalService(modalURL, modalToken)
 
-	// File UseCase (used by message handlers)
-	fileUseCase := fileApp.NewFileUseCase(fileRepo, clipRepo, storageService, modalService)
-
 	// 4. Initialize RabbitMQ
 	rabbitmqURL := os.Getenv("RABBITMQ_URL")
 	if rabbitmqURL == "" {
@@ -74,6 +71,16 @@ func main() {
 		log.Fatalf("Failed to create RabbitMQ client: %v", err)
 	}
 	defer rabbitmqClient.Close()
+
+	// Initialize Publisher for worker (to send status updates later)
+	rabbitmqPublisher, err := infrastructure.NewRabbitMQPublisher(rabbitmqClient)
+	if err != nil {
+		log.Fatalf("Failed to create RabbitMQ publisher: %v", err)
+	}
+	defer rabbitmqPublisher.Close()
+
+	// File UseCase (used by message handlers)
+	fileUseCase := fileApp.NewFileUseCase(fileRepo, clipRepo, storageService, modalService, rabbitmqPublisher)
 
 	consumer, err := infrastructure.NewRabbitMQConsumer(rabbitmqClient)
 	if err != nil {
@@ -92,7 +99,7 @@ func main() {
 		log.Printf("Processing video for file: %s, user: %s", msg.FileID, msg.UserID)
 
 		// Call the actual processing logic
-		if err := fileUseCase.ProcessVideo(msg.FileID, msg.UserID); err != nil {
+		if err := fileUseCase.ProcessVideo(msg.FileID, msg.UserID, msg.Config); err != nil {
 			log.Printf("Failed to process video: %v", err)
 			return err
 		}

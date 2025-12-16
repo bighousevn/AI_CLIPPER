@@ -1,6 +1,7 @@
 package infrastructure
 
 import (
+	"ai-clipper/server2/internal/file/domain/file"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -27,12 +28,13 @@ func NewHTTPModalService(modalURL, modalToken string) *HTTPModalService {
 	}
 }
 
-// ProcessVideo calls Modal endpoint to trigger video processing
-func (s *HTTPModalService) ProcessVideo(storagePath string) error {
-	requestBody := map[string]string{
+// SendVideoToModal calls Modal endpoint to trigger video processing
+func (s *HTTPModalService) SendVideoToModal(storagePath string, config file.VideoConfig) error {
+	requestBody := map[string]any{
 		"storage_path": storagePath,
+		"config":       config,
 	}
-	log.Printf("Processing video at storage path: %s", storagePath)
+	log.Printf("Sending video to Modal API for storage path: %s", storagePath)
 
 	jsonData, err := json.Marshal(requestBody)
 	if err != nil {

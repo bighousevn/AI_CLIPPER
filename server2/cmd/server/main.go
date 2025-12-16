@@ -8,7 +8,12 @@ import (
 	fileApp "ai-clipper/server2/internal/file/application"
 	fileInfra "ai-clipper/server2/internal/file/infrastructure"
 	fileHttp "ai-clipper/server2/internal/file/interfaces/http"
+	messagedomain "ai-clipper/server2/internal/messaging/domain"
+	msgInfra "ai-clipper/server2/internal/messaging/infrastructure"
 	"ai-clipper/server2/internal/middleware"
+	"ai-clipper/server2/internal/sse"
+	sseHttp "ai-clipper/server2/internal/sse/interfaces/http"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -108,12 +113,57 @@ func main() {
 	// Clip Repository
 	clipRepo := fileInfra.NewGormClipRepository(db)
 
+	// Initialize RabbitMQ
+	rabbitmqURL := os.Getenv("RABBITMQ_URL")
+	if rabbitmqURL == "" {
+		rabbitmqURL = "amqp://admin:admin123@localhost:5672/" // Default local
+	}
+	rabbitmqClient, err := msgInfra.NewRabbitMQClient(rabbitmqURL)
+	if err != nil {
+		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
+	}
+	defer rabbitmqClient.Close()
+
+	rabbitmqPublisher, err := msgInfra.NewRabbitMQPublisher(rabbitmqClient)
+	if err != nil {
+		log.Fatalf("Failed to create RabbitMQ publisher: %v", err)
+	}
+	defer rabbitmqPublisher.Close()
+
 	// File Module - Application
-	fileUseCase := fileApp.NewFileUseCase(fileRepo, clipRepo, storageService, modalService)
+	fileUseCase := fileApp.NewFileUseCase(fileRepo, clipRepo, storageService, modalService, rabbitmqPublisher)
 
 	// File Module - Interfaces
 	filePresenter := fileHttp.NewFilePresenter()
 	fileController := fileHttp.NewFileController(fileUseCase, filePresenter)
+
+	// --- SSE Setup ---
+	sseManager := sse.NewManager()
+
+	// Setup RabbitMQ Consumer for Status Updates
+	rabbitmqConsumer, err := msgInfra.NewRabbitMQConsumer(rabbitmqClient)
+	if err != nil {
+		log.Fatalf("Failed to create RabbitMQ consumer: %v", err)
+	}
+
+	// Start listening for status updates
+	err = rabbitmqConsumer.ConsumeStatusUpdate(func(body []byte) error {
+		var msg messagedomain.StatusUpdateMessage
+		if err := json.Unmarshal(body, &msg); err != nil {
+			log.Printf("Failed to unmarshal status update: %v", err)
+			return err
+		}
+
+		log.Printf("Received status update for user %s: %s", msg.UserID, msg.Status)
+
+		// Push to SSE Manager
+		sseManager.SendToUser(msg.UserID, "video_status", msg)
+		return nil
+	})
+	if err != nil {
+		log.Fatalf("Failed to start status update consumer: %v", err)
+	}
+	defer rabbitmqConsumer.Close()
 
 	// 5. Initialize Gin Engine and Cors configuration
 	log.Println("Initializing web server...")
@@ -144,6 +194,10 @@ func main() {
 
 	authHttp.NewAuthRouter(router, authController, tokenGenerator)
 	fileHttp.NewFileRouter(router, fileController, tokenGenerator)
+
+	// SSE Endpoint
+	sseController := sseHttp.NewSSEController(sseManager)
+	router.GET("/api/v1/events", middleware.AuthMiddleware(tokenGenerator), sseController.StreamEvents)
 
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
