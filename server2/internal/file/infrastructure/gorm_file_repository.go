@@ -29,6 +29,7 @@ type FileModel struct {
 	FilePath    string     `gorm:"type:varchar(500)"`           // Storage path
 	FileSize    int64      `gorm:"default:0"`                   // File size in bytes
 	MimeType    string     `gorm:"type:varchar(100)"`           // MIME type
+	ClipCount   int        `gorm:"default:0"`                   // Number of generated clips
 	CreatedAt   *time.Time `gorm:"not null;default:now()"`
 	UpdatedAt   *time.Time
 }
@@ -45,7 +46,7 @@ func (r *GormFileRepository) Save(f *file.File) error {
 		ID:          f.ID,
 		UserID:      f.UserID,
 		DisplayName: f.FileName, // Map FileName to DisplayName
-		Status:      "uploaded", // Default status
+		Status:      f.Status,   // Use status from entity
 		Uploaded:    true,       // Mark as uploaded
 		FilePath:    f.FilePath,
 		FileSize:    f.FileSize,
@@ -101,14 +102,33 @@ func (r *GormFileRepository) Delete(id uuid.UUID) error {
 	return nil
 }
 
+// UpdateStatus updates the processing status and clip count of a file
+func (r *GormFileRepository) UpdateStatus(id uuid.UUID, status string, clipCount int) error {
+	result := r.db.Model(&FileModel{}).Where("id = ?", id).Updates(map[string]interface{}{
+		"status":     status,
+		"clip_count": clipCount,
+		"updated_at": time.Now(),
+	})
+
+	if result.Error != nil {
+		return fmt.Errorf("failed to update file status: %w", result.Error)
+	}
+
+	return nil
+}
+
 // toDomain converts FileModel to domain File entity
 func (r *GormFileRepository) toDomain(model *FileModel) *file.File {
 	return &file.File{
 		ID:       model.ID,
 		UserID:   model.UserID,
 		FileName: model.DisplayName, // Map DisplayName back to FileName
-		FilePath: model.FilePath,
-		FileSize: model.FileSize,
-		MimeType: model.MimeType,
+		FilePath:  model.FilePath,
+		FileSize:  model.FileSize,
+		MimeType:  model.MimeType,
+		Status:    model.Status,
+		ClipCount: model.ClipCount,
+		CreatedAt: *model.CreatedAt,
+		UpdatedAt: *model.UpdatedAt,
 	}
 }

@@ -3,19 +3,22 @@ package application
 import (
 	"ai-clipper/server2/internal/file/domain/clip"
 	"ai-clipper/server2/internal/file/domain/file"
+	messagedomain "ai-clipper/server2/internal/messaging/domain"
 	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/google/uuid"
 )
 
 // FileUseCase handles file upload business logic
 type FileUseCase struct {
-	fileRepo       file.FileRepository
-	clipRepo       clip.ClipRepository
-	storageService StorageService
-	modalService   ModalService
+	fileRepo         file.FileRepository
+	clipRepo         clip.ClipRepository
+	storageService   StorageService
+	modalService     ModalService
+	messagePublisher messagedomain.MessagePublisher
 }
 
 // NewFileUseCase creates a new FileUseCase
@@ -24,12 +27,14 @@ func NewFileUseCase(
 	clipRepo clip.ClipRepository,
 	storageService StorageService,
 	modalService ModalService,
+	messagePublisher messagedomain.MessagePublisher,
 ) *FileUseCase {
 	return &FileUseCase{
-		fileRepo:       fileRepo,
-		clipRepo:       clipRepo,
-		storageService: storageService,
-		modalService:   modalService,
+		fileRepo:         fileRepo,
+		clipRepo:         clipRepo,
+		storageService:   storageService,
+		modalService:     modalService,
+		messagePublisher: messagePublisher,
 	}
 }
 
@@ -78,12 +83,62 @@ func (uc *FileUseCase) UploadFile(dto FileUploadDTO) (*FileResponseDTO, error) {
 
 	log.Printf("File uploaded successfully: %s", fileEntity.ID)
 
+	// Publish message to RabbitMQ for async processing with retry logic
+	var publishErr error
+	maxRetries := 3
+	for i := 0; i < maxRetries; i++ {
+		publishErr = uc.messagePublisher.PublishVideoProcessing(
+			fileEntity.ID.String(),
+			fileEntity.UserID.String(),
+			fileEntity.FilePath,
+			dto.Config,
+		)
+		if publishErr == nil {
+			break
+		}
+		log.Printf("Failed to publish message (attempt %d/%d): %v", i+1, maxRetries, publishErr)
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	finalStatus := fileEntity.Status
+	finalUpdatedAt := fileEntity.UpdatedAt
+
+	if publishErr != nil {
+		log.Printf("CRITICAL: Failed to publish video processing message after retries: %v", publishErr)
+		
+		// Cleanup: Delete file metadata from DB
+		if err := uc.fileRepo.Delete(fileEntity.ID); err != nil {
+			log.Printf("Failed to delete file metadata during cleanup: %v", err)
+		}
+		
+		// Cleanup: Delete file from storage
+		if err := uc.storageService.Delete(fileEntity.FilePath); err != nil {
+			log.Printf("Failed to delete file from storage during cleanup: %v", err)
+		}
+
+		return nil, fmt.Errorf("failed to queue video for processing: %w", publishErr)
+	}
+	
+	// Success path
+	// Update status to "queued"
+	if updateErr := uc.fileRepo.UpdateStatus(fileEntity.ID, "queued", 0); updateErr != nil {
+		log.Printf("Failed to update status to queued: %v", updateErr)
+	} else {
+		finalStatus = "queued"
+		finalUpdatedAt = time.Now()
+		log.Printf("Video processing message published and status updated to queued for file: %s", fileEntity.ID)
+	}
+
 	return &FileResponseDTO{
-		ID:       fileEntity.ID.String(),
-		FileName: fileEntity.FileName,
-		FilePath: fileEntity.FilePath,
-		FileSize: fileEntity.FileSize,
-		Message:  "File uploaded successfully",
+		ID:        fileEntity.ID.String(),
+		FileName:  fileEntity.FileName,
+		FilePath:  fileEntity.FilePath,
+		FileSize:  fileEntity.FileSize,
+		Message:   "File uploaded and processing started",
+		Status:    finalStatus,
+		ClipCount: fileEntity.ClipCount,
+		CreatedAt: fileEntity.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt: finalUpdatedAt.Format("2006-01-02 15:04:05"),
 	}, nil
 }
 
@@ -102,94 +157,126 @@ func (uc *FileUseCase) GetUserFiles(userID string) ([]*FileResponseDTO, error) {
 	responses := make([]*FileResponseDTO, len(files))
 	for i, f := range files {
 		responses[i] = &FileResponseDTO{
-			ID:       f.ID.String(),
-			FileName: f.FileName,
-			FilePath: f.FilePath,
-			FileSize: f.FileSize,
+			ID:        f.ID.String(),
+			FileName:  f.FileName,
+			FilePath:  f.FilePath,
+			FileSize:  f.FileSize,
+			Status:    f.Status,
+			CreatedAt: f.CreatedAt.Format("2006-01-02 15:04:05"),
+			UpdatedAt: f.UpdatedAt.Format("2006-01-02 15:04:05"),
+			ClipCount: f.ClipCount,
 		}
 	}
 
 	return responses, nil
 }
 
-// ProcessVideo triggers video processing via Modal
-func (uc *FileUseCase) ProcessVideo(fileID, userID string) error {
-	log.Printf("Starting video processing for file: %s, user: %s", fileID, userID)
+// ProcessVideo handles the actual video processing logic (called by Worker)
+func (uc *FileUseCase) ProcessVideo(fileID, userID string, config file.VideoConfig) error {
+	log.Printf("Worker starting processing for file: %s, user: %s", fileID, userID)
 
 	// Parse IDs
 	fid, err := uuid.Parse(fileID)
 	if err != nil {
-		return errors.New("invalid file ID")
+		return fmt.Errorf("invalid file ID: %w", err)
 	}
 
 	uid, err := uuid.Parse(userID)
 	if err != nil {
-		return errors.New("invalid user ID")
+		return fmt.Errorf("invalid user ID: %w", err)
 	}
 
-	// Get file from database
+	// 1. Get file info to get path
 	fileEntity, err := uc.fileRepo.FindByID(fid)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to find file: %w", err)
 	}
-
 	if fileEntity == nil {
 		return errors.New("file not found")
 	}
 
-	// Verify ownership
-	if fileEntity.UserID != uid {
-		return errors.New("unauthorized: file does not belong to user")
+	// 2. Update status to PROCESSING
+	if err := uc.fileRepo.UpdateStatus(fid, "processing", 0); err != nil {
+		log.Printf("Failed to update status to processing: %v", err)
+		// Continue processing even if status update fails
 	}
 
-	// Call Modal service asynchronously
-	go func() {
-		err := uc.modalService.ProcessVideo(fileEntity.FilePath)
-		if err != nil {
-			log.Printf("Modal processing failed for file %s: %v", fileEntity.ID, err)
-			return
-		}
+	// 3. Call Modal Service (BLOCKING until finished)
+	log.Printf("Calling Modal for file: %s with prompt: %s", fileEntity.FilePath, config.Prompt)
+	err = uc.modalService.SendVideoToModal(fileEntity.FilePath, config)
+	if err != nil {
+		// Update status to FAILED
+		uc.fileRepo.UpdateStatus(fid, "failed", 0)
+		return fmt.Errorf("modal processing failed: %w", err)
+	}
 
-		// Extract user folder from file path (e.g., "user-xxx/uuid-video.mp4" -> "user-xxx")
-		userFolder := ""
-		if len(fileEntity.FilePath) > 0 {
-			parts := []rune(fileEntity.FilePath)
-			for i, ch := range parts {
-				if ch == '/' {
-					userFolder = string(parts[:i])
-					break
-				}
+	// 4. Processing Done: List clips from Storage
+	userFolder := ""
+	if len(fileEntity.FilePath) > 0 {
+		parts := []rune(fileEntity.FilePath)
+		for i, ch := range parts {
+			if ch == '/' {
+				userFolder = string(parts[:i])
+				break
 			}
 		}
+	}
 
-		if userFolder == "" {
-			log.Printf("Failed to extract user folder from file path: %s", fileEntity.FilePath)
-			return
+	if userFolder == "" {
+		uc.fileRepo.UpdateStatus(fid, "failed", 0)
+		return fmt.Errorf("failed to extract user folder from path: %s", fileEntity.FilePath)
+	}
+
+	clipsFolder := userFolder + "/clips"
+	
+	// Add retry logic for listing files (Eventual Consistency)
+	var clipPaths []string
+	maxRetries := 3
+	for i := 0; i < maxRetries; i++ {
+		clipPaths, err = uc.storageService.ListFiles(clipsFolder)
+		if err == nil && len(clipPaths) > 0 {
+			break
 		}
-
-		// Build clips folder path: user-xxx/clips
-		clipsFolder := userFolder + "/clips"
-
-		// List all clips from storage
-		clipPaths, err := uc.storageService.ListFiles(clipsFolder)
-		if err != nil {
-			log.Printf("Failed to list clips from storage: %v", err)
-			return
+		if i < maxRetries-1 {
+			log.Printf("Retry listing clips (%d/%d)...", i+1, maxRetries)
+			time.Sleep(2 * time.Second)
 		}
+	}
 
-		// Save clips to database
-		savedCount := 0
-		for _, clipPath := range clipPaths {
-			clipEntity := clip.NewClip(uid, fid, clipPath)
-			if err := uc.clipRepo.Save(clipEntity); err != nil {
-				log.Printf("Failed to save clip %s: %v", clipPath, err)
-				continue
-			}
-			savedCount++
+	if err != nil {
+		log.Printf("Warning: Failed to list clips after retries: %v", err)
+	}
+
+	// 5. Save Clips to DB
+	savedCount := 0
+	for _, clipPath := range clipPaths {
+		clipEntity := clip.NewClip(uid, fid, clipPath)
+		if err := uc.clipRepo.Save(clipEntity); err != nil {
+			log.Printf("Failed to save clip %s: %v", clipPath, err)
+			continue
 		}
+		savedCount++
+	}
 
-		log.Printf("Video processing complete: saved %d clips for file %s", savedCount, fileEntity.ID)
-	}()
+	// 6. Update Status to SUCCESS
+	finalStatus := "success"
+	// if savedCount == 0 { finalStatus = "success_no_clips" } // Optional
+
+	if err := uc.fileRepo.UpdateStatus(fid, finalStatus, savedCount); err != nil {
+		return fmt.Errorf("failed to update success status: %w", err)
+	}
+
+	log.Printf("Video processing completed successfully. Saved %d clips.", savedCount)
+
+	// Phase 4 hook: Notify completion via RabbitMQ
+	if err := uc.messagePublisher.PublishStatusUpdate(
+		fileEntity.ID.String(),
+		fileEntity.UserID.String(),
+		finalStatus,
+		savedCount,
+	); err != nil {
+		log.Printf("Warning: Failed to publish status update: %v", err)
+	}
 
 	return nil
 }

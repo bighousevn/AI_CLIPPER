@@ -15,10 +15,15 @@ type File struct {
 	FileSize   int64
 	MimeType   string
 	UploadedAt time.Time
+	Status     string
+	ClipCount  int
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 // NewFile creates a new File entity
 func NewFile(userID uuid.UUID, fileName, filePath string, fileSize int64, mimeType string) *File {
+	now := time.Now()
 	return &File{
 		ID:         uuid.New(),
 		UserID:     userID,
@@ -26,7 +31,11 @@ func NewFile(userID uuid.UUID, fileName, filePath string, fileSize int64, mimeTy
 		FilePath:   filePath,
 		FileSize:   fileSize,
 		MimeType:   mimeType,
-		UploadedAt: time.Now(),
+		UploadedAt: now,
+		Status:     "uploaded",
+		ClipCount:  0,
+		CreatedAt:  now,
+		UpdatedAt:  now,
 	}
 }
 

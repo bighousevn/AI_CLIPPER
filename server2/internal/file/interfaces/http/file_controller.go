@@ -2,6 +2,8 @@ package http
 
 import (
 	"ai-clipper/server2/internal/file/application"
+	domainFile "ai-clipper/server2/internal/file/domain/file"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -58,6 +60,21 @@ func (ctrl *FileController) UploadFile(c *gin.Context) {
 
 	log.Printf("File received: %s, size: %d", header.Filename, header.Size)
 
+	configStrs := c.Request.MultipartForm.Value["config"]
+	if len(configStrs) == 0 {
+		log.Printf("Fail to receive config")
+		ctrl.presenter.RespondError(c, http.StatusBadRequest, "Config is required")
+		return
+	}
+	var config domainFile.VideoConfig
+	if err := json.Unmarshal([]byte(configStrs[0]), &config); err != nil {
+		log.Printf("Error parsing config JSON: %v", err)
+		ctrl.presenter.RespondError(c, http.StatusBadRequest, "Config is invalid")
+		return
+	}
+
+	log.Printf("Received config: %+v", config)
+
 	// Get authenticated user from context
 	userIDInterface, exists := c.Get("userID")
 	if !exists {
@@ -85,6 +102,7 @@ func (ctrl *FileController) UploadFile(c *gin.Context) {
 		File:   file,
 		Header: header,
 		UserID: userID,
+		Config: config,
 	}
 
 	// Execute use case
@@ -177,7 +195,7 @@ func (ctrl *FileController) ProcessVideo(c *gin.Context) {
 	log.Printf("Processing video request: user=%s, fileID=%s", userID, fileID)
 
 	// Execute use case
-	if err := ctrl.fileUseCase.ProcessVideo(fileID, userID); err != nil {
+	if err := ctrl.fileUseCase.ProcessVideo(fileID, userID, domainFile.VideoConfig{}); err != nil {
 		log.Printf("Failed to process video: %v", err)
 		ctrl.presenter.RespondError(c, http.StatusInternalServerError, err.Error())
 		return

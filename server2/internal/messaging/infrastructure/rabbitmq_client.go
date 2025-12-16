@@ -10,9 +10,8 @@ import (
 
 // RabbitMQClient manages the connection to RabbitMQ
 type RabbitMQClient struct {
-	conn    *amqp.Connection
-	channel *amqp.Channel
-	url     string
+	conn *amqp.Connection
+	url  string
 }
 
 // NewRabbitMQClient creates a new RabbitMQ client
@@ -47,19 +46,27 @@ func (c *RabbitMQClient) connect() error {
 		return fmt.Errorf("failed to dial RabbitMQ after retries: %w", err)
 	}
 
-	c.channel, err = c.conn.Channel()
-	if err != nil {
-		c.conn.Close()
-		return fmt.Errorf("failed to open channel: %w", err)
-	}
-
 	log.Println("Successfully connected to RabbitMQ")
 	return nil
 }
 
+// NewChannel creates a new channel from the connection
+func (c *RabbitMQClient) NewChannel() (*amqp.Channel, error) {
+	if c.conn == nil || c.conn.IsClosed() {
+		return nil, fmt.Errorf("connection is not open")
+	}
+
+	channel, err := c.conn.Channel()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create channel: %w", err)
+	}
+
+	return channel, nil
+}
+
 // DeclareQueue declares a queue (idempotent operation)
-func (c *RabbitMQClient) DeclareQueue(queueName string) error {
-	_, err := c.channel.QueueDeclare(
+func (c *RabbitMQClient) DeclareQueue(channel *amqp.Channel, queueName string) error {
+	_, err := channel.QueueDeclare(
 		queueName, // name
 		true,      // durable (survive broker restart)
 		false,     // delete when unused
@@ -74,19 +81,8 @@ func (c *RabbitMQClient) DeclareQueue(queueName string) error {
 	return nil
 }
 
-// GetChannel returns the AMQP channel
-func (c *RabbitMQClient) GetChannel() *amqp.Channel {
-	return c.channel
-}
-
-// Close closes the connection and channel
+// Close closes the connection
 func (c *RabbitMQClient) Close() error {
-	if c.channel != nil {
-		if err := c.channel.Close(); err != nil {
-			log.Printf("Error closing channel: %v", err)
-		}
-	}
-
 	if c.conn != nil {
 		if err := c.conn.Close(); err != nil {
 			log.Printf("Error closing connection: %v", err)
