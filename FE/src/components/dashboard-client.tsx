@@ -17,8 +17,7 @@ import { useRouter } from "next/navigation";
 import { Dropzone, DropzoneContent, DropzoneEmptyState } from "./ui/shadcn-io/dropzone";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Badge } from "./ui/badge";
-import type { Clip } from "~/interfaces/clip";
-import type { UploadFile } from "~/interfaces/uploadfile";
+
 import { ClipDisplay } from "./clip-display";
 import { processingFile, uploadFile } from "~/services/uploadService";
 import { DropzoneVideoPreview } from "./DropzoneVideoPreview";
@@ -29,8 +28,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { useForm } from "react-hook-form";
 import { Checkbox } from "./ui/checkbox";
-import type { ClipConfig } from "~/interfaces/clipConfig";
 import { useUploadClip } from "~/hooks/useUpload";
+import type { ClipConfig } from "~/interfaces/ClipConfig";
+import type { Clip } from "~/interfaces/Clip";
+import type { UploadFile } from "~/interfaces/Uploadfile";
+
 
 export function DashboardClient({
     uploadedFiles,
@@ -175,9 +177,6 @@ export function DashboardClient({
                                                         </FormItem>
                                                     )}
                                                 />
-
-
-
                                                 {/* Aspect Ratio */}
                                                 <FormField
                                                     control={form.control}
@@ -195,6 +194,7 @@ export function DashboardClient({
                                                                     <SelectItem value="9:16">9:16 (TikTok, Reels)</SelectItem>
                                                                     <SelectItem value="16:9">16:9 (YouTube)</SelectItem>
                                                                     <SelectItem value="1:1">1:1 (Square)</SelectItem>
+                                                                    <SelectItem value=" ">Auto</SelectItem>
                                                                 </SelectContent>
                                                             </Select>
                                                         </FormItem>
@@ -235,7 +235,7 @@ export function DashboardClient({
                                 </Button>
                             </div>
                             {
-                                uploadedFiles.length > 0 && (
+                                uploadedFiles.length > 0 ? (
                                     <div className="pt-6">
                                         <div className="mb-2 flex items-center justify-between">
                                             <h3 className="text-md mb-2 font-medium">Queue status</h3>
@@ -305,7 +305,14 @@ export function DashboardClient({
                                             </Table>
                                         </div>
                                     </div>
-                                )}
+                                ) :
+                                    (
+                                        <div className="pt-6">
+                                            <div className="mb-2 flex items-center justify-between">
+                                                <h3 className="text-md mb-2 font-medium">No files uploaded yet</h3>
+                                            </div>
+                                        </div>
+                                    )}
                         </CardContent>
 
                     </Card>

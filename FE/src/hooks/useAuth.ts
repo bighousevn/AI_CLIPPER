@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import axiosClient from "~/lib/axiosClient";
-import type { UserResponse } from "~/interfaces/auth";
+import type { UserResponse } from "~/interfaces/Auth";
 
 export function useAuth() {
     const [user, setUser] = useState<UserResponse | null>(null);
@@ -19,7 +19,7 @@ export function useAuth() {
             const res = await axiosClient.get("/users/me");
             setUser(res.data);
         } catch (err) {
-            console.error("❌ Lấy thông tin user thất bại:", err);
+            console.error(" Lấy thông tin user thất bại:", err);
             localStorage.removeItem("accessToken");
         } finally {
             setLoading(false);

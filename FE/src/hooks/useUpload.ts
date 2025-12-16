@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ClipConfig } from "~/interfaces/clipConfig";
+import type { ClipConfig } from "~/interfaces/ClipConfig";
 import { getUploadedFiles, uploadFile } from "~/services/uploadService";
 
 export function useUploadClip() {
@@ -23,5 +23,9 @@ export function useUploadClip() {
 }
 //useUploadedFiles
 export function useUploadedFiles() {
-    return useQuery({ queryKey: ["uploaded-files"], queryFn: getUploadedFiles });
+    return useQuery(
+        {
+            queryKey: ["uploaded-files"],
+            queryFn: getUploadedFiles
+        });
 }

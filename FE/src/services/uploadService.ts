@@ -16,8 +16,8 @@
 // }
 import axiosClient from "~/lib/axiosClient";
 import type { AxiosError } from "axios";
-import type { UploadFile } from "~/interfaces/uploadfile";
 import type { ClipConfig } from "~/interfaces/ClipConfig";
+import type { UploadFile } from "~/interfaces/Uploadfile";
 
 export const uploadFile = async (file: File, config: ClipConfig) => {
     const formData = new FormData();
@@ -58,7 +58,7 @@ export const processingFile = async (file: UploadFile) => {
 export const getUploadedFiles = async (): Promise<UploadFile[]> => {
     try {
         const res = await axiosClient.get("/files/me");
-        return res.data;
+        return res.data.data;
     } catch (err) {
         const error = err as AxiosError<{ message?: string }>;
         throw new Error(error.response?.data?.message || "Upload failed");
