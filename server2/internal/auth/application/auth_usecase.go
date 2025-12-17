@@ -2,6 +2,7 @@ package application
 
 import (
 	userDomain "ai-clipper/server2/internal/auth/domain/user"
+	"ai-clipper/server2/internal/messaging/domain"
 	"context"
 	"errors"
 	"log"
@@ -26,19 +27,19 @@ type IAuthUseCase interface {
 
 // AuthUseCase is the concrete implementation of IAuthUseCase.
 type AuthUseCase struct {
-	userRepo       userDomain.UserRepository
-	hasher         PasswordHasher
-	tokenGenerator TokenGenerator
-	emailSender    EmailSender
+	userRepo         userDomain.UserRepository
+	hasher           PasswordHasher
+	tokenGenerator   TokenGenerator
+	messagePublisher domain.MessagePublisher
 }
 
 // NewAuthUseCase creates a new instance of AuthUseCase.
-func NewAuthUseCase(userRepo userDomain.UserRepository, hasher PasswordHasher, tokenGenerator TokenGenerator, emailSender EmailSender) IAuthUseCase {
+func NewAuthUseCase(userRepo userDomain.UserRepository, hasher PasswordHasher, tokenGenerator TokenGenerator, messagePublisher domain.MessagePublisher) IAuthUseCase {
 	return &AuthUseCase{
-		userRepo:       userRepo,
-		hasher:         hasher,
-		tokenGenerator: tokenGenerator,
-		emailSender:    emailSender,
+		userRepo:         userRepo,
+		hasher:           hasher,
+		tokenGenerator:   tokenGenerator,
+		messagePublisher: messagePublisher,
 	}
 }
 
@@ -91,12 +92,12 @@ func (uc *AuthUseCase) Register(ctx context.Context, req RegisterRequest) (*Regi
 		return nil, errors.New("failed to save user")
 	}
 
-	// Send verification email
-	if err := uc.emailSender.SendVerificationEmail(userToSave.Email, userToSave.Username, verificationToken); err != nil {
-		log.Printf("WARNING: Failed to send verification email to %s: %v", userToSave.Email, err)
-		// Don't fail registration if email fails, user can request resend later
+	// Send verification email via RabbitMQ
+	if err := uc.messagePublisher.PublishEmailNotification("VERIFY", userToSave.Email, userToSave.Username, verificationToken); err != nil {
+		log.Printf("WARNING: Failed to queue verification email to %s: %v", userToSave.Email, err)
+		// Don't fail registration if email queueing fails
 	} else {
-		log.Printf("Verification email sent successfully to %s", userToSave.Email)
+		log.Printf("Verification email queued successfully for %s", userToSave.Email)
 	}
 
 	response := &RegisterResponse{
@@ -214,12 +215,12 @@ func (uc *AuthUseCase) ForgotPassword(ctx context.Context, req ForgotPasswordReq
 		return errors.New("failed to save reset token")
 	}
 
-	// Send password reset email
-	if err := uc.emailSender.SendPasswordResetEmail(user.Email, user.Username, token); err != nil {
-		log.Printf("WARNING: Failed to send password reset email to %s: %v", user.Email, err)
-		// Don't fail the request if email fails
+	// Send password reset email via RabbitMQ
+	if err := uc.messagePublisher.PublishEmailNotification("RESET", user.Email, user.Username, token); err != nil {
+		log.Printf("WARNING: Failed to queue password reset email to %s: %v", user.Email, err)
+		// Don't fail the request if email queueing fails
 	} else {
-		log.Printf("Password reset email sent successfully to %s", user.Email)
+		log.Printf("Password reset email queued successfully for %s", user.Email)
 	}
 
 	return nil

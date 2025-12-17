@@ -74,11 +74,12 @@ func (p *RabbitMQPublisher) PublishVideoProcessing(fileID, userID, filePath stri
 }
 
 // PublishEmailNotification publishes an email notification request
-func (p *RabbitMQPublisher) PublishEmailNotification(to, subject, body string) error {
+func (p *RabbitMQPublisher) PublishEmailNotification(emailType, to, username, content string) error {
 	message := domain.EmailNotificationMessage{
-		To:      to,
-		Subject: subject,
-		Body:    body,
+		Type:     emailType,
+		To:       to,
+		Username: username,
+		Content:  content,
 	}
 
 	msgBody, err := json.Marshal(message)

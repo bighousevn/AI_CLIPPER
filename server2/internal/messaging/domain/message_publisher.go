@@ -4,7 +4,7 @@ import "ai-clipper/server2/internal/file/domain/file"
 
 type MessagePublisher interface {
 	PublishVideoProcessing(fileID, userID, filePath string, config file.VideoConfig) error
-	PublishEmailNotification(to, subject, body string) error
+	PublishEmailNotification(emailType, to, username, content string) error
 	PublishStatusUpdate(fileID, userID, status string, clipCount int) error
 	Close() error
 }
@@ -24,7 +24,8 @@ type StatusUpdateMessage struct {
 }
 
 type EmailNotificationMessage struct {
-	To      string `json:"to"`
-	Subject string `json:"subject"`
-	Body    string `json:"body"`
+	Type     string `json:"type"`
+	To       string `json:"to"`
+	Username string `json:"username"`
+	Content  string `json:"content"`
 }

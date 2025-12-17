@@ -111,22 +111,6 @@ func main() {
 		log.Fatalf("Failed to start video processing consumer: %v", err)
 	}
 
-	// Email Notification Consumer (future use)
-	err = consumer.ConsumeEmailNotification(func(body []byte) error {
-		var msg domain.EmailNotificationMessage
-		if err := json.Unmarshal(body, &msg); err != nil {
-			log.Printf("Failed to unmarshal email notification: %v", err)
-			return err
-		}
-
-		log.Printf("Sending email to: %s, subject: %s", msg.To, msg.Subject)
-		// TODO: Implement email sending logic
-		return nil
-	})
-	if err != nil {
-		log.Fatalf("Failed to start email notification consumer: %v", err)
-	}
-
 	log.Println("Worker is running. Press Ctrl+C to exit.")
 
 	// 6. Wait for interrupt signal
