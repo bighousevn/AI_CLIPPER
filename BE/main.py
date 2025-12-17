@@ -709,13 +709,13 @@ def main():
     url = ai_podcast_clipper.process_video.get_web_url()                 
 
     payload = {
-        "storage_path": "test/aaaa.mp4",
+        "storage_path": "test/aa aaaaa aa.mp4",
         "config": {
             "prompt": "interesting topics about mi6",
             "clip_count": 1,
-            "target_width": 1080,
-            "target_height": 1920,
-            "subtitle": True
+            "target_width": 1230,
+            "target_height": 2230,
+            "subtitle": False
         }
     }
 

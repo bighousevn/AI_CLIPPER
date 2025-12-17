@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
+	"path/filepath"
 
 	"github.com/google/uuid"
 	storage "github.com/supabase-community/storage-go"
@@ -35,9 +36,10 @@ func (s *SupabaseStorageService) Upload(file multipart.File, header *multipart.F
 	// Reset file pointer
 	file.Seek(0, 0)
 
-	// Create file path: user-{userID}/{uuid}-{filename}
+	// Create file path: user-{userID}/{uuid}{ext}
 	fileID := uuid.New().String()
-	filePath := fmt.Sprintf("user-%s/%s-%s", userID, fileID, header.Filename)
+	ext := filepath.Ext(header.Filename)
+	filePath := fmt.Sprintf("user-%s/%s%s", userID, fileID, ext)
 
 	// Upload to Supabase
 	_, err = s.client.UploadFile(s.bucketName, filePath, bytes.NewReader(fileBytes))
