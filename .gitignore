@@ -68,3 +68,7 @@ logs
 
 server2/docs/swagger.json
 server2/docs/swagger.yaml
+# ignore log files
+*.log
+logs/
+server2/logs/
