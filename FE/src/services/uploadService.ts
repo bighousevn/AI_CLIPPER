@@ -16,10 +16,10 @@
 // }
 import axiosClient from "~/lib/axiosClient";
 import type { AxiosError } from "axios";
-import type { ClipConfig } from "~/interfaces/ClipConfig";
-import type { UploadFile } from "~/interfaces/Uploadfile";
+import type { UploadFile } from "~/interfaces/uploadfile";
+import type { ClipConfigAPI } from "~/interfaces/clipConfig";
 
-export const uploadFile = async (file: File, config: ClipConfig) => {
+export const uploadFile = async (file: File, config: ClipConfigAPI) => {
     const formData = new FormData();
 
     // File upload

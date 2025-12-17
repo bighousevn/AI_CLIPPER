@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ClipConfig } from "~/interfaces/ClipConfig";
+import type { ClipConfig, ClipConfigAPI } from "~/interfaces/clipConfig";
 import { getUploadedFiles, uploadFile } from "~/services/uploadService";
 
 export function useUploadClip() {
@@ -7,7 +7,7 @@ export function useUploadClip() {
 
     return useMutation({
 
-        mutationFn: async (payload: { file: File; config: ClipConfig }) => {
+        mutationFn: async (payload: { file: File; config: ClipConfigAPI }) => {
             return await uploadFile(payload.file, payload.config);
         },
 

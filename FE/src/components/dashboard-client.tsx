@@ -11,7 +11,7 @@ import {
     CardTitle,
 } from "./ui/card";
 import { Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useRouter } from "next/navigation";
 import { Dropzone, DropzoneContent, DropzoneEmptyState } from "./ui/shadcn-io/dropzone";
@@ -22,16 +22,17 @@ import { ClipDisplay } from "./clip-display";
 import { processingFile, uploadFile } from "~/services/uploadService";
 import { DropzoneVideoPreview } from "./DropzoneVideoPreview";
 import type z from "zod";
-import { ClipConfigSchema } from "~/schemas/clipConfigSchema";
+import { ClipConfigSchema, transformToApiData } from "~/schemas/clipConfigSchema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { useForm } from "react-hook-form";
 import { Checkbox } from "./ui/checkbox";
 import { useUploadClip } from "~/hooks/useUpload";
-import type { ClipConfig } from "~/interfaces/ClipConfig";
-import type { Clip } from "~/interfaces/Clip";
-import type { UploadFile } from "~/interfaces/Uploadfile";
+import type { ClipConfig } from "~/interfaces/clipConfig";
+import type { Clip } from "~/interfaces/clip";
+import type { UploadFile } from "~/interfaces/uploadfile";
+
 
 
 export function DashboardClient({
@@ -42,6 +43,11 @@ export function DashboardClient({
     clips: Clip[]
 
 }) {
+
+
+
+
+
     const [files, setFiles] = useState<File[]>([]);
     const [uploading, setUploading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
@@ -51,7 +57,7 @@ export function DashboardClient({
         resolver: zodResolver(ClipConfigSchema),
         defaultValues: {
             prompt: "",
-            clipCount: 3,
+            clipCount: 1,
             aspectRatio: "9:16",
             subtitle: false,
         },
@@ -68,12 +74,25 @@ export function DashboardClient({
     const { mutate } = useUploadClip();
 
     const handleUpload = async () => {
+        // Kiểm tra validation của form trước
+        const isValid = await form.trigger();
+        if (!isValid || files.length === 0) return;
+
         setUploading(true);
-        if (files.length > 0) {
+        try {
             const item = files[0] as File;
-            await mutate({ file: item, config: form.getValues() });
+
+            // Lấy data từ form (vẫn chứa aspectRatio)
+            const rawValues = form.getValues();
+
+            // Chuyển đổi sang định dạng Server cần (chứa targetWidth, targetHeight)
+            const apiData = transformToApiData(rawValues);
+
+            // Gửi apiData lên server
+            await mutate({ file: item, config: apiData });
+        } finally {
+            setUploading(false);
         }
-        setUploading(false);
     };
 
     return (
@@ -234,7 +253,62 @@ export function DashboardClient({
                                         <Loader2 className="mr-2 h-4 w-4  animate-spin" /> Uploading</> : "Upload and Generate Clips"}
                                 </Button>
                             </div>
-                            <UploadFiles />
+                            {/* <UploadFiles /> */}
+                            {uploadedFiles.length > 0 ? (
+                                <>
+                                    <div className="mb-2 flex items-center justify-between">
+                                        <h3 className="text-md mb-2 font-medium">Queue status</h3>
+                                        <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing}>
+                                            {refreshing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                            Refresh
+                                        </Button>
+                                    </div>
+
+                                    <div className="max-h-[300px] overflow-auto rounded-md border">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>File</TableHead>
+                                                    <TableHead>Uploaded</TableHead>
+                                                    <TableHead>Status</TableHead>
+                                                    <TableHead>Clips created</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+
+                                            <TableBody>
+                                                {uploadedFiles.map((item) => (
+                                                    <TableRow key={item.id}>
+                                                        <TableCell className="max-w-xs truncate font-medium">{item.filename}</TableCell>
+                                                        <TableCell className="text-muted-foreground text-sm">
+                                                            {new Date(item.createdAt).toLocaleDateString()}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {item.status === "queued" && <Badge variant="outline">Queued</Badge>}
+                                                            {item.status === "processing" && <Badge variant="outline">Processing</Badge>}
+                                                            {item.status === "processed" && <Badge variant="outline">Processed</Badge>}
+                                                            {item.status === "no credits" && <Badge variant="destructive">No credits</Badge>}
+                                                            {item.status === "failed" && <Badge variant="destructive">Failed</Badge>}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {item.clipsCount > 0 ? (
+                                                                <span>
+                                                                    {item.clipsCount} clip{item.clipsCount !== 1 ? "s" : ""}
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-muted-foreground">No clips yet</span>
+                                                            )}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="mb-2">
+                                    <h3 className="text-md font-medium">No files uploaded yet</h3>
+                                </div>
+                            )}
                         </CardContent>
 
                     </Card>
