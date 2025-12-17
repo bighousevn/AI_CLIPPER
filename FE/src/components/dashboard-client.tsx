@@ -19,9 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Badge } from "./ui/badge";
 
 import { ClipDisplay } from "./clip-display";
-import { processingFile, uploadFile } from "~/services/uploadService";
 import { DropzoneVideoPreview } from "./DropzoneVideoPreview";
-import type z from "zod";
 import { ClipConfigSchema, transformToApiData } from "~/schemas/clipConfigSchema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
@@ -32,8 +30,7 @@ import { useUploadClip } from "~/hooks/useUpload";
 import type { ClipConfig } from "~/interfaces/clipConfig";
 import type { Clip } from "~/interfaces/clip";
 import type { UploadFile } from "~/interfaces/uploadfile";
-import axiosClient from "~/lib/axiosClient";
-
+import { EventSourcePolyfill } from "event-source-polyfill";
 
 
 export function DashboardClient({
@@ -48,23 +45,21 @@ export function DashboardClient({
     const router = useRouter();
 
     useEffect(() => {
-        const eventSource = new EventSource(
+        const token = localStorage.getItem("accessToken");
+        const es = new EventSourcePolyfill(
             `${process.env.NEXT_PUBLIC_API_URL}/events`,
-            { withCredentials: true }
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+                heartbeatTimeout: 60000,
+            }
         );
-        eventSource.onmessage = (event) => {
-            // Khi nhận event từ server, reload lại trang
-            router.refresh();
-        };
 
-        eventSource.onerror = (err) => {
-            console.error("SSE error", err);
-            eventSource.close();
-        };
+        es.onmessage = () => router.refresh();
+        es.onerror = () => es.close();
 
-        return () => {
-            eventSource.close();
-        };
+        return () => es.close();
     }, [router]);
 
     const [files, setFiles] = useState<File[]>([]);

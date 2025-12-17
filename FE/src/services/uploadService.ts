@@ -21,20 +21,12 @@ import type { ClipConfigAPI } from "~/interfaces/clipConfig";
 
 export const uploadFile = async (file: File, config: ClipConfigAPI) => {
     const formData = new FormData();
-
-    // File upload
     formData.append("file", file);
-
-    // ClipConfig → JSON
     formData.append("config", JSON.stringify(config));
 
     try {
         const res = await axiosClient.post("/upload", formData, {
-            headers: {
-                "Content-Type": "multipart/form-data",
-            },
         });
-
         return res.data;
     } catch (err) {
         const error = err as AxiosError<{ message?: string }>;
