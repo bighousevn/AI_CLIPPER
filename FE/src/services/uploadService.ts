@@ -17,19 +17,31 @@
 import axiosClient from "~/lib/axiosClient";
 import type { AxiosError } from "axios";
 import type { UploadFile } from "~/interfaces/uploadfile";
+import type { ClipConfigAPI } from "~/interfaces/clipConfig";
 
-export const uploadFile = async (file: File) => {
+export const uploadFile = async (file: File, config: ClipConfigAPI) => {
     const formData = new FormData();
+
+    // File upload
     formData.append("file", file);
 
+    // ClipConfig → JSON
+    formData.append("config", JSON.stringify(config));
+
     try {
-        const res = await axiosClient.post("/upload", formData, { headers: { "Content-Type": "multipart/form-data" } });
-        return res.data; // return the response data if needed
+        const res = await axiosClient.post("/upload", formData, {
+            headers: {
+                "Content-Type": "multipart/form-data",
+            },
+        });
+
+        return res.data;
     } catch (err) {
         const error = err as AxiosError<{ message?: string }>;
         throw new Error(error.response?.data?.message || "Upload failed");
     }
 };
+
 export const processingFile = async (file: UploadFile) => {
     try {
         const processRes = await axiosClient.post(`/files/${file.id}/process`);
@@ -42,3 +54,13 @@ export const processingFile = async (file: UploadFile) => {
         throw error;
     }
 }
+//getUploadedFiles
+export const getUploadedFiles = async (): Promise<UploadFile[]> => {
+    try {
+        const res = await axiosClient.get("/files/me");
+        return res.data.data;
+    } catch (err) {
+        const error = err as AxiosError<{ message?: string }>;
+        throw new Error(error.response?.data?.message || "Upload failed");
+    }
+};

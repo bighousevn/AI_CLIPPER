@@ -11,16 +11,29 @@ import {
     CardTitle,
 } from "./ui/card";
 import { Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useRouter } from "next/navigation";
 import { Dropzone, DropzoneContent, DropzoneEmptyState } from "./ui/shadcn-io/dropzone";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Badge } from "./ui/badge";
-import type { Clip } from "~/interfaces/clip";
-import type { UploadFile } from "~/interfaces/uploadfile";
+
 import { ClipDisplay } from "./clip-display";
 import { processingFile, uploadFile } from "~/services/uploadService";
+import { DropzoneVideoPreview } from "./DropzoneVideoPreview";
+import type z from "zod";
+import { ClipConfigSchema, transformToApiData } from "~/schemas/clipConfigSchema";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { useForm } from "react-hook-form";
+import { Checkbox } from "./ui/checkbox";
+import { useUploadClip } from "~/hooks/useUpload";
+import type { ClipConfig } from "~/interfaces/clipConfig";
+import type { Clip } from "~/interfaces/clip";
+import type { UploadFile } from "~/interfaces/uploadfile";
+
+
 
 export function DashboardClient({
     uploadedFiles,
@@ -30,42 +43,67 @@ export function DashboardClient({
     clips: Clip[]
 
 }) {
-    const [files, setFiles] = useState<File[]>([]);
-    const [uploading, setUploading] = useState(false);
-    const [refreshing, setRefreshing] = useState(false);
+
     const router = useRouter();
 
-    const handleRefresh = async () => {
-        setRefreshing(true);
-        router.refresh();
-        setTimeout(() => setRefreshing(false), 600);
-    };
+    useEffect(() => {
+        const eventSource = new EventSource(
+            `${process.env.NEXT_PUBLIC_API_URL}/events`,
+            { withCredentials: true }
+        );
+        eventSource.onmessage = (event) => {
+            // Khi nhận event từ server, reload lại trang
+            router.refresh();
+        };
+
+        eventSource.onerror = (err) => {
+            console.error("SSE error", err);
+            eventSource.close();
+        };
+
+        return () => {
+            eventSource.close();
+        };
+    }, [router]);
+
+
+
+    const [files, setFiles] = useState<File[]>([]);
+
+    const form = useForm<ClipConfig>({
+        resolver: zodResolver(ClipConfigSchema),
+        defaultValues: {
+            prompt: "",
+            clipCount: 1,
+            aspectRatio: "9:16",
+            subtitle: false,
+        },
+    });
 
     const handleDrop = (acceptedFiles: File[]) => {
         setFiles(acceptedFiles);
     };
+    const { mutate, isPending } = useUploadClip();
+
     const handleUpload = async () => {
-        setUploading(true);
-        if (files.length === 0) return;
-        const file = files[0];
+        // Kiểm tra validation của form trước
+        const isValid = await form.trigger();
+        if (!isValid || files.length === 0) return;
 
         try {
-            // //delay 3 seconds
-            // await new Promise((resolve) => setTimeout(resolve, 3000));
-            // upload file to s3
-            if (file) {
-                const res = await uploadFile(file);
-                console.log(res);
-                processingFile(res.data);
+            const item = files[0] as File;
 
-            }
-        }
-        catch (error) {
-            console.log(error);
+            // Lấy data từ form (vẫn chứa aspectRatio)
+            const rawValues = form.getValues();
+
+            // Chuyển đổi sang định dạng Server cần (chứa targetWidth, targetHeight)
+            const apiData = transformToApiData(rawValues);
+
+            // Gửi apiData lên server
+            await mutate({ file: item, config: apiData });
         } finally {
-            setUploading(false);
         }
-    }
+    };
 
     return (
         <div className="mx-auto flex max-w-5xl flex-col space-y-6 px-4 py-8">
@@ -101,7 +139,7 @@ export function DashboardClient({
                         <CardContent>
                             <Dropzone
                                 accept={{ "video/mp4": [".mp4"] }}
-                                disabled={uploading}
+                                disabled={isPending}
                                 maxFiles={1}
                                 maxSize={500 * 1024 * 1024}
                                 minSize={1024}
@@ -111,32 +149,125 @@ export function DashboardClient({
 
                             >
                                 <DropzoneEmptyState />
-                                <DropzoneContent />
+                                <DropzoneContent>
+                                    <DropzoneVideoPreview />
+                                </DropzoneContent>
                             </Dropzone>
+                            {files.length > 0 && (
+                                <Card className="mt-6 animate-in fade-in slide-in-from-bottom-4 duration-300" >
+                                    <CardHeader>
+                                        <CardTitle>Video Configuration</CardTitle>
+                                        <CardDescription>
+                                            Customize how clips will be generated.
+                                        </CardDescription>
+                                    </CardHeader>
+
+                                    <CardContent >
+                                        <Form {...form} >
+                                            <form className="space-y-4">
+                                                <fieldset disabled={isPending} className="space-y-4 opacity-100">
+                                                    {/* Prompt */}
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="prompt"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel>Prompt</FormLabel>
+                                                                <FormControl>
+                                                                    <textarea
+                                                                        className="w-full min-h-[80px] resize-none rounded-md border p-3"
+                                                                        placeholder="Describe the tone, topic, or highlight you want..."
+                                                                        {...field}
+                                                                    />
+                                                                </FormControl>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+
+                                                    {/* Number of clips */}
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="clipCount"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel>Number of clips</FormLabel>
+                                                                <FormControl>
+                                                                    <input
+                                                                        type="number"
+                                                                        className="input"
+                                                                        min={1}
+                                                                        max={10}
+                                                                        {...field}
+                                                                        onChange={(e) => field.onChange(Number(e.target.value))}
+                                                                    />
+                                                                </FormControl>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                    {/* Aspect Ratio */}
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="aspectRatio"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel>Aspect Ratio</FormLabel>
+                                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                                    <FormControl>
+                                                                        <SelectTrigger>
+                                                                            <SelectValue placeholder="Select ratio" />
+                                                                        </SelectTrigger>
+                                                                    </FormControl>
+                                                                    <SelectContent>
+                                                                        <SelectItem value="9:16">9:16 (TikTok, Reels)</SelectItem>
+                                                                        <SelectItem value="16:9">16:9 (YouTube)</SelectItem>
+                                                                        <SelectItem value="1:1">1:1 (Square)</SelectItem>
+                                                                        <SelectItem value=" ">Auto</SelectItem>
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                    {/* toggle subtitle */}
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="subtitle"
+                                                        render={({ field }) => (
+                                                            <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                                                                <FormControl>
+                                                                    <Checkbox
+                                                                        checked={field.value}
+                                                                        onCheckedChange={field.onChange}
+                                                                    />
+                                                                </FormControl>
+                                                                <div className="space-y-1 leading-none">
+                                                                    <FormLabel>
+                                                                        Include Subtitle
+                                                                    </FormLabel>
+                                                                </div>
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                </fieldset>
+                                            </form>
+                                        </Form>
+                                    </CardContent>
+                                </Card>
+                            )}
+
                             <div className="flex items-start justify-between">
 
-                                <Button className="mt-4" disabled={uploading || files.length === 0} onClick={handleUpload}>
-                                    {uploading ? <>
+                                <Button className="mt-4" disabled={isPending || files.length === 0} onClick={handleUpload}>
+                                    {isPending ? <>
                                         <Loader2 className="mr-2 h-4 w-4  animate-spin" /> Uploading</> : "Upload and Generate Clips"}
                                 </Button>
                             </div>
-                            {uploadedFiles.length > 0 && (
-                                <div className="pt-6">
-                                    <div className="mb-2 flex items-center justify-between">
-                                        <h3 className="text-md mb-2 font-medium">Queue status</h3>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={handleRefresh}
-                                            disabled={refreshing}
-                                        >
-                                            {refreshing && (
-                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                            )}
-                                            Refresh
-                                        </Button>
-                                    </div>
-                                    <div className="max-h-[300px] overflow-auto rounded-md border">
+                            {/* <UploadFiles /> */}
+                            {uploadedFiles.length > 0 ? (
+                                <>
+
+                                    <div className="max-h-[300px] overflow-auto rounded-md border mt-5">
                                         <Table>
                                             <TableHeader>
                                                 <TableRow>
@@ -146,42 +277,28 @@ export function DashboardClient({
                                                     <TableHead>Clips created</TableHead>
                                                 </TableRow>
                                             </TableHeader>
+
                                             <TableBody>
                                                 {uploadedFiles.map((item) => (
                                                     <TableRow key={item.id}>
-                                                        <TableCell className="max-w-xs truncate font-medium">
-                                                            {item.filename}
-                                                        </TableCell>
+                                                        <TableCell className="max-w-xs truncate font-medium">{item.file_name}</TableCell>
                                                         <TableCell className="text-muted-foreground text-sm">
-                                                            {new Date(item.createdAt).toLocaleDateString()}
+                                                            {new Date(item.created_at).toLocaleDateString()}
                                                         </TableCell>
                                                         <TableCell>
-                                                            {item.status === "queued" && (
-                                                                <Badge variant="outline">Queued</Badge>
-                                                            )}
-                                                            {item.status === "processing" && (
-                                                                <Badge variant="outline">Processing</Badge>
-                                                            )}
-                                                            {item.status === "processed" && (
-                                                                <Badge variant="outline">Processed</Badge>
-                                                            )}
-                                                            {item.status === "no credits" && (
-                                                                <Badge variant="destructive">No credits</Badge>
-                                                            )}
-                                                            {item.status === "failed" && (
-                                                                <Badge variant="destructive">Failed</Badge>
-                                                            )}
+                                                            {item.status === "queued" && <Badge variant="outline">Queued</Badge>}
+                                                            {item.status === "processing" && <Badge variant="outline">Processing</Badge>}
+                                                            {item.status === "success" && <Badge variant="outline">Success</Badge>}
+                                                            {item.status === "no credits" && <Badge variant="destructive">No credits</Badge>}
+                                                            {item.status === "failed" && <Badge variant="destructive">Failed</Badge>}
                                                         </TableCell>
                                                         <TableCell>
-                                                            {item.clipsCount > 0 ? (
+                                                            {item.clip_count > 0 ? (
                                                                 <span>
-                                                                    {item.clipsCount} clip
-                                                                    {item.clipsCount !== 1 ? "s" : ""}
+                                                                    {item.clip_count} clip{item.clip_count !== 1 ? "s" : ""}
                                                                 </span>
                                                             ) : (
-                                                                <span className="text-muted-foreground">
-                                                                    No clips yet
-                                                                </span>
+                                                                <span className="text-muted-foreground">No clips yet</span>
                                                             )}
                                                         </TableCell>
                                                     </TableRow>
@@ -189,6 +306,10 @@ export function DashboardClient({
                                             </TableBody>
                                         </Table>
                                     </div>
+                                </>
+                            ) : (
+                                <div className="mb-2">
+                                    <h3 className="text-md font-medium">No files uploaded yet</h3>
                                 </div>
                             )}
                         </CardContent>

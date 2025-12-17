@@ -43,7 +43,7 @@ export function SignupForm({
             await signup(data);
 
             // Redirect
-            window.location.href = "https://mail.google.com/mail/u/0/#inbox";
+            // window.location.href = "https://mail.google.com/mail/u/0/#inbox";
         } catch (err) {
             if (err instanceof Error) {
                 setError(err.message);

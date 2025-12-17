@@ -19,7 +19,7 @@ export function useAuth() {
             const res = await axiosClient.get("/users/me");
             setUser(res.data);
         } catch (err) {
-            console.error("❌ Lấy thông tin user thất bại:", err);
+            console.error(" Lấy thông tin user thất bại:", err);
             localStorage.removeItem("accessToken");
         } finally {
             setLoading(false);
