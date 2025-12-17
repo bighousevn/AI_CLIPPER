@@ -3,8 +3,13 @@ package database
 import (
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 	"time"
 
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/google/uuid"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -77,4 +82,57 @@ func InitDatabase(dsn string) (*gorm.DB, error) {
 	}
 	log.Println("Database connection established.")
 	return db, nil
+}
+
+// RunMigrations applies database migrations.
+func RunMigrations(dsn string) error {
+	// Get the current working directory
+	wd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory: %w", err)
+	}
+
+	// Assuming the app is run from 'server2/cmd/server', we need to go up two levels
+	// to find 'database/migrations'.
+	// Path: [wd]/../../database/migrations
+	migrationsPath := filepath.Join(wd, "..", "..", "database", "migrations")
+	
+	// Convert backslashes to forward slashes for the file:// URL scheme on Windows
+	migrationsPath = filepath.ToSlash(filepath.Clean(migrationsPath))
+
+	log.Printf("Looking for migrations in: %s", migrationsPath)
+
+	m, err := migrate.New(
+		"file://"+migrationsPath,
+		dsn,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create migrate instance: %w", err)
+	}
+
+	if err := m.Up(); err != nil {
+		if err == migrate.ErrNoChange {
+			log.Println("Database is up to date.")
+			return nil
+		}
+		
+		// Handle "Dirty database" error
+		if err.Error() == "Dirty database version 1. Fix and force version." {
+			log.Println("Database is dirty. Forcing version 1 and retrying...")
+			if forceErr := m.Force(1); forceErr != nil {
+				return fmt.Errorf("failed to force version 1: %w", forceErr)
+			}
+			// Retry Up after forcing
+			if upErr := m.Up(); upErr != nil && upErr != migrate.ErrNoChange {
+				return fmt.Errorf("failed to retry migrate up after forcing: %w", upErr)
+			}
+			log.Println("Database migrations applied successfully after forcing.")
+			return nil
+		}
+
+		return fmt.Errorf("failed to run migrate up: %w", err)
+	}
+
+	log.Println("Database migrations applied successfully.")
+	return nil
 }

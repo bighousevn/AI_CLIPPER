@@ -54,6 +54,13 @@ func main() {
 	if dsn == "" {
 		log.Fatal("SUPABASE_URLL environment variable not set")
 	}
+
+	// Run Database Migrations
+	log.Println("Running database migrations...")
+	if err := database.RunMigrations(dsn); err != nil {
+		log.Fatalf("Failed to run database migrations: %v", err)
+	}
+
 	db, err := database.InitDatabase(dsn) // Use the new database package
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
@@ -77,10 +84,27 @@ func main() {
 		RefreshExpiry: time.Hour * 24 * 30, // 30 days
 	}
 	tokenGenerator := authInfra.NewJWTTokenGenerator(jwtConfig)
-	emailSender := authInfra.NewSMTPEmailService()
+
+	// Initialize RabbitMQ
+	rabbitmqURL := os.Getenv("RABBITMQ_URL")
+	if rabbitmqURL == "" {
+		rabbitmqURL = "amqp://admin:admin123@localhost:5672/" // Default local
+	}
+	rabbitmqClient, err := msgInfra.NewRabbitMQClient(rabbitmqURL)
+	if err != nil {
+		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
+	}
+	defer rabbitmqClient.Close()
+
+	rabbitmqPublisher, err := msgInfra.NewRabbitMQPublisher(rabbitmqClient)
+	if err != nil {
+		log.Fatalf("Failed to create RabbitMQ publisher: %v", err)
+	}
+	defer rabbitmqPublisher.Close()
 
 	// Auth Module - Application
-	authUseCase := authApp.NewAuthUseCase(userRepo, passwordHasher, tokenGenerator, emailSender)
+	// Inject rabbitmqPublisher instead of emailSender because we now use async messaging for emails
+	authUseCase := authApp.NewAuthUseCase(userRepo, passwordHasher, tokenGenerator, rabbitmqPublisher)
 
 	// Auth Module - Interfaces
 	authPresenter := authHttp.NewAuthPresenter()
@@ -112,23 +136,6 @@ func main() {
 
 	// Clip Repository
 	clipRepo := fileInfra.NewGormClipRepository(db)
-
-	// Initialize RabbitMQ
-	rabbitmqURL := os.Getenv("RABBITMQ_URL")
-	if rabbitmqURL == "" {
-		rabbitmqURL = "amqp://admin:admin123@localhost:5672/" // Default local
-	}
-	rabbitmqClient, err := msgInfra.NewRabbitMQClient(rabbitmqURL)
-	if err != nil {
-		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
-	}
-	defer rabbitmqClient.Close()
-
-	rabbitmqPublisher, err := msgInfra.NewRabbitMQPublisher(rabbitmqClient)
-	if err != nil {
-		log.Fatalf("Failed to create RabbitMQ publisher: %v", err)
-	}
-	defer rabbitmqPublisher.Close()
 
 	// File Module - Application
 	fileUseCase := fileApp.NewFileUseCase(fileRepo, clipRepo, storageService, modalService, rabbitmqPublisher)

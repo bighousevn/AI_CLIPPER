@@ -1,7 +1,7 @@
 -- This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
-CREATE TABLE public.users (
+CREATE TABLE IF NOT EXISTS public.users (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   username text UNIQUE,
   email text NOT NULL UNIQUE,
@@ -20,7 +20,7 @@ CREATE TABLE public.users (
   CONSTRAINT users_pkey PRIMARY KEY (id)
 );
 
-CREATE TABLE public.uploaded_files (
+CREATE TABLE IF NOT EXISTS public.uploaded_files (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp without time zone DEFAULT now(),
@@ -32,7 +32,7 @@ CREATE TABLE public.uploaded_files (
   CONSTRAINT uploaded_files_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE
 );
 
-CREATE TABLE public.clips (
+CREATE TABLE IF NOT EXISTS public.clips (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp without time zone,
