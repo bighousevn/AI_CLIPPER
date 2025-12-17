@@ -11,6 +11,9 @@ import (
 	messagedomain "ai-clipper/server2/internal/messaging/domain"
 	msgInfra "ai-clipper/server2/internal/messaging/infrastructure"
 	"ai-clipper/server2/internal/middleware"
+	paymentApp "ai-clipper/server2/internal/payment/application"
+	paymentInfra "ai-clipper/server2/internal/payment/infrastructure"
+	paymentHttp "ai-clipper/server2/internal/payment/interfaces/http"
 	"ai-clipper/server2/internal/sse"
 	sseHttp "ai-clipper/server2/internal/sse/interfaces/http"
 	"encoding/json"
@@ -61,13 +64,16 @@ func main() {
 		log.Fatalf("Failed to run database migrations: %v", err)
 	}
 
-	db, err := database.InitDatabase(dsn) // Use the new database package
+	db, err := database.InitDatabase(dsn)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
 	// 3. Dependency Injection (Wiring the components)
 	log.Println("Initializing dependencies...")
+
+	// Initialize Stripe Service
+	stripeService := paymentInfra.NewStripeService()
 
 	// Auth Module - Infrastructure
 	userRepo := authInfra.NewGormUserRepository(db)
@@ -103,12 +109,16 @@ func main() {
 	defer rabbitmqPublisher.Close()
 
 	// Auth Module - Application
-	// Inject rabbitmqPublisher instead of emailSender because we now use async messaging for emails
-	authUseCase := authApp.NewAuthUseCase(userRepo, passwordHasher, tokenGenerator, rabbitmqPublisher)
+	authUseCase := authApp.NewAuthUseCase(userRepo, passwordHasher, tokenGenerator, rabbitmqPublisher, stripeService)
 
 	// Auth Module - Interfaces
 	authPresenter := authHttp.NewAuthPresenter()
 	authController := authHttp.NewAuthController(authUseCase, authPresenter)
+
+	// Payment Module - Application & Interfaces
+	paymentUseCase := paymentApp.NewPaymentUseCase(stripeService, userRepo)
+	paymentController := paymentHttp.NewPaymentController(paymentUseCase)
+	webhookController := paymentHttp.NewWebhookController(stripeService, userRepo)
 
 	// File Module - Infrastructure
 	fileRepo := fileInfra.NewGormFileRepository(db)
@@ -122,7 +132,7 @@ func main() {
 	storageClient := storage.NewClient(supabaseURL+"/storage/v1", supabaseKey, nil)
 	storageBucket := os.Getenv("SUPABASE_STORAGE_BUCKET")
 	if storageBucket == "" {
-		storageBucket = "uploaded_files" // default bucket name
+		storageBucket = "uploaded_files"
 	}
 	storageService := fileInfra.NewSupabaseStorageService(storageClient, storageBucket)
 
@@ -138,7 +148,7 @@ func main() {
 	clipRepo := fileInfra.NewGormClipRepository(db)
 
 	// File Module - Application
-	fileUseCase := fileApp.NewFileUseCase(fileRepo, clipRepo, storageService, modalService, rabbitmqPublisher)
+	fileUseCase := fileApp.NewFileUseCase(fileRepo, clipRepo, userRepo, storageService, modalService, rabbitmqPublisher)
 
 	// File Module - Interfaces
 	filePresenter := fileHttp.NewFilePresenter()
@@ -176,7 +186,7 @@ func main() {
 	log.Println("Initializing web server...")
 	router := gin.Default()
 
-	// Attach HTTP logger middleware (structured logs to logs/http.log)
+	// Attach HTTP logger middleware
 	router.Use(middleware.LoggerMiddleware())
 
 	if err := router.SetTrustedProxies(nil); err != nil {
@@ -186,7 +196,7 @@ func main() {
 
 	feURL := os.Getenv("FE_URL")
 	if feURL == "" {
-		feURL = "http://localhost:3000" // Default for local development
+		feURL = "http://localhost:3000"
 	}
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{feURL},
@@ -197,10 +207,10 @@ func main() {
 	}))
 	router.Use(middleware.RateLimitingMiddleware())
 
-	// 6. Register Routes
-
 	authHttp.NewAuthRouter(router, authController, tokenGenerator)
 	fileHttp.NewFileRouter(router, fileController, tokenGenerator)
+	paymentHttp.RegisterRoutes(router, paymentController, tokenGenerator)
+	paymentHttp.RegisterWebhookRoutes(router, webhookController)
 
 	// SSE Endpoint
 	sseController := sseHttp.NewSSEController(sseManager)

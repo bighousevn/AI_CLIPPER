@@ -25,21 +25,34 @@ type IAuthUseCase interface {
 	GetUserProfile(ctx context.Context, userID uuid.UUID) (*UserProfileResponse, error)
 }
 
+// PaymentService defines the interface for payment related operations needed by auth
+type PaymentService interface {
+	CreateCustomer(email, name string) (string, error)
+}
+
 // AuthUseCase is the concrete implementation of IAuthUseCase.
 type AuthUseCase struct {
 	userRepo         userDomain.UserRepository
 	hasher           PasswordHasher
 	tokenGenerator   TokenGenerator
 	messagePublisher domain.MessagePublisher
+	paymentService   PaymentService
 }
 
 // NewAuthUseCase creates a new instance of AuthUseCase.
-func NewAuthUseCase(userRepo userDomain.UserRepository, hasher PasswordHasher, tokenGenerator TokenGenerator, messagePublisher domain.MessagePublisher) IAuthUseCase {
+func NewAuthUseCase(
+	userRepo userDomain.UserRepository,
+	hasher PasswordHasher,
+	tokenGenerator TokenGenerator,
+	messagePublisher domain.MessagePublisher,
+	paymentService PaymentService,
+) IAuthUseCase {
 	return &AuthUseCase{
 		userRepo:         userRepo,
 		hasher:           hasher,
 		tokenGenerator:   tokenGenerator,
 		messagePublisher: messagePublisher,
+		paymentService:   paymentService,
 	}
 }
 
@@ -67,6 +80,13 @@ func (uc *AuthUseCase) Register(ctx context.Context, req RegisterRequest) (*Regi
 	}
 	verificationExpires := time.Now().UTC().Add(time.Hour * 24)
 
+	// Create Stripe Customer
+	stripeCustomerID, err := uc.paymentService.CreateCustomer(email, req.Username)
+	if err != nil {
+		log.Printf("ERROR: Failed to create Stripe customer for %s: %v", email, err)
+		return nil, errors.New("failed to create payment account")
+	}
+
 	var userToSave *userDomain.User
 	if existingUser != nil { // User exists but is not verified
 		userToSave = existingUser
@@ -74,6 +94,7 @@ func (uc *AuthUseCase) Register(ctx context.Context, req RegisterRequest) (*Regi
 		userToSave.PasswordHash = hashedPassword
 		userToSave.EmailVerificationToken = &verificationToken
 		userToSave.EmailVerificationExpires = &verificationExpires
+		userToSave.StripeCustomerID = &stripeCustomerID
 	} else { // New user
 		userToSave = &userDomain.User{
 			ID:                       uuid.New(),
@@ -84,6 +105,7 @@ func (uc *AuthUseCase) Register(ctx context.Context, req RegisterRequest) (*Regi
 			IsEmailVerified:          false,
 			EmailVerificationToken:   &verificationToken,
 			EmailVerificationExpires: &verificationExpires,
+			StripeCustomerID:         &stripeCustomerID,
 		}
 	}
 

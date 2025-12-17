@@ -12,6 +12,7 @@ type UserRepository interface {
 	FindByPasswordResetToken(ctx context.Context, token string) (*User, error)
 	FindByEmailVerificationToken(ctx context.Context, token string) (*User, error)
 	FindByRefreshToken(ctx context.Context, token string) (*User, error)
+	FindByStripeCustomerID(ctx context.Context, stripeCustomerID string) (*User, error)
 	Save(ctx context.Context, user *User) error // Handles both Create and Update
 	Delete(ctx context.Context, id uuid.UUID) error // Optional: for hard deletes if needed
 }

@@ -103,6 +103,10 @@ func (r *GormUserRepository) FindByRefreshToken(ctx context.Context, token strin
 	return r.findByField(ctx, "refresh_token", token)
 }
 
+func (r *GormUserRepository) FindByStripeCustomerID(ctx context.Context, stripeCustomerID string) (*userDomain.User, error) {
+	return r.findByField(ctx, "stripe_customer_id", stripeCustomerID)
+}
+
 func (r *GormUserRepository) Save(ctx context.Context, user *userDomain.User) error {
 	gormUser := fromDomain(user);
 

@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"ai-clipper/server2/database"
+	authInfra "ai-clipper/server2/internal/auth/infrastructure"
 	fileApp "ai-clipper/server2/internal/file/application"
 	fileInfra "ai-clipper/server2/internal/file/infrastructure"
 	"ai-clipper/server2/internal/messaging/domain"
@@ -38,6 +39,7 @@ func main() {
 	// 3. Initialize dependencies
 	fileRepo := fileInfra.NewGormFileRepository(db)
 	clipRepo := fileInfra.NewGormClipRepository(db)
+	userRepo := authInfra.NewGormUserRepository(db)
 
 	// Supabase Storage
 	supabaseURL := os.Getenv("SUPABASE_URL")
@@ -80,7 +82,7 @@ func main() {
 	defer rabbitmqPublisher.Close()
 
 	// File UseCase (used by message handlers)
-	fileUseCase := fileApp.NewFileUseCase(fileRepo, clipRepo, storageService, modalService, rabbitmqPublisher)
+	fileUseCase := fileApp.NewFileUseCase(fileRepo, clipRepo, userRepo, storageService, modalService, rabbitmqPublisher)
 
 	consumer, err := infrastructure.NewRabbitMQConsumer(rabbitmqClient)
 	if err != nil {
