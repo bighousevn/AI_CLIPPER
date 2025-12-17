@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Clip } from "~/interfaces/Clip";
+import type { Clip } from "~/interfaces/clip";
 import { Button } from "./ui/button";
 import { Download, Loader2, Play } from "lucide-react";
 
 function ClipCard({ clip }: { clip: Clip }) {
-    const [playUrl, setPlayUrl] = useState<string | null>("http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4");
+    const playUrl = clip.download_url;
     const [isLoadingUrl, setIsLoadingUrl] = useState(false);
 
 

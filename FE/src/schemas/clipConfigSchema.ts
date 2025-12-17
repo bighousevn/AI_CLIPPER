@@ -2,7 +2,7 @@ import { z } from "zod";
 
 // 1. Schema thuần để Validate Form (Giữ nguyên cấu trúc UI cần)
 export const ClipConfigSchema = z.object({
-    prompt: z.string(),
+    prompt: z.string().min(10, "Prompt is required and must be at least 10 characters"),
     clipCount: z.number().min(1).max(10),
     aspectRatio: z.enum(["9:16", "16:9", "1:1", "3:4"]),
     subtitle: z.boolean(),

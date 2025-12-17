@@ -1,11 +1,10 @@
 //getClips
 import { AxiosError } from "axios";
-import type { Clip } from "~/interfaces/Clip";
+import type { Clip } from "~/interfaces/clip";
 import axiosClient from "~/lib/axiosClient";
 export const getClips = async (): Promise<Clip[]> => {
     try {
         const res = await axiosClient.get(`/clips/me`);
-        console.log(res.data);
         return res.data.data;
     } catch (err) {
         const error = err as AxiosError<{ message?: string }>;

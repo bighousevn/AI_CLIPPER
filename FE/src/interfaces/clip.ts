@@ -1,9 +1,7 @@
 export interface Clip {
     id: string;
-    title: string;
-    createdAt: Date;
-    uploadedFileId: string;
-    views: number;
-    videoUrl: string;
-    thumbnailUrl: string;
+    uploaded_file_id: string;
+    file_path: string;
+    download_url: string;
+    created_at: string;
 }
