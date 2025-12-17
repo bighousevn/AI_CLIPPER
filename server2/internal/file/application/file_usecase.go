@@ -322,13 +322,16 @@ func (uc *FileUseCase) ProcessVideo(fileID, userID string, config file.VideoConf
 
 	// 6. Update Status to SUCCESS
 	finalStatus := "success"
-	// if savedCount == 0 { finalStatus = "success_no_clips" } // Optional
-
-	if err := uc.fileRepo.UpdateStatus(fid, finalStatus, savedCount); err != nil {
-		return fmt.Errorf("failed to update success status: %w", err)
+	if savedCount == 0 {
+		finalStatus = "failed"
+		log.Printf("Video processing completed but no clips were found/generated. Marking as failed.")
+	} else {
+		log.Printf("Video processing completed successfully. Saved %d clips.", savedCount)
 	}
 
-	log.Printf("Video processing completed successfully. Saved %d clips.", savedCount)
+	if err := uc.fileRepo.UpdateStatus(fid, finalStatus, savedCount); err != nil {
+		return fmt.Errorf("failed to update status: %w", err)
+	}
 
 	// Phase 4 hook: Notify completion via RabbitMQ
 	if err := uc.messagePublisher.PublishStatusUpdate(
