@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -205,37 +207,97 @@ func (uc *FileUseCase) ProcessVideo(fileID, userID string, config file.VideoConf
 	log.Printf("Calling Modal for file: %s with prompt: %s", fileEntity.FilePath, config.Prompt)
 	err = uc.modalService.SendVideoToModal(fileEntity.FilePath, config)
 	if err != nil {
+		log.Printf("Modal processing failed for file %s: %v", fid, err)
+		
 		// Update status to FAILED
 		uc.fileRepo.UpdateStatus(fid, "failed", 0)
+		
+		// Notify failure via SSE
+		if pubErr := uc.messagePublisher.PublishStatusUpdate(
+			fileEntity.ID.String(),
+			fileEntity.UserID.String(),
+			"failed",
+			0,
+		); pubErr != nil {
+			log.Printf("Warning: Failed to publish failed status: %v", pubErr)
+		}
+
+		// CLEANUP: Delete original file
+		if delErr := uc.storageService.Delete(fileEntity.FilePath); delErr != nil {
+			log.Printf("Cleanup warning: Failed to delete original file %s: %v", fileEntity.FilePath, delErr)
+		}
+
+		// CLEANUP: Delete any partial clips
+		// Construct clips folder path manually (assuming convention user-id/uuid-filename)
+		// Or better, reuse the logic below to find folder
+		userFolder := ""
+		if len(fileEntity.FilePath) > 0 {
+			parts := []rune(fileEntity.FilePath)
+			for i, ch := range parts {
+				if ch == '/' {
+					userFolder = string(parts[:i])
+					break
+				}
+			}
+		}
+		
+		if userFolder != "" {
+			clipsFolder := userFolder + "/clips"
+			// List and delete
+			if partialClips, listErr := uc.storageService.ListFiles(clipsFolder); listErr == nil {
+				for _, pClip := range partialClips {
+					// Only delete clips belonging to this file (need naming convention update first to be safe, 
+					// but for now we delete everything in clips folder? NO, that's dangerous if shared.
+					// Since we haven't implemented unique clip naming yet, this might delete other clips.
+					// SAFE BET: Only delete original file for now until unique naming is implemented.
+					// However, if the folder is per-user, and we assume sequential processing...
+					// Let's hold off on deleting clips until unique naming is in place.
+					_ = pClip
+				}
+			}
+		}
+
 		return fmt.Errorf("modal processing failed: %w", err)
 	}
 
 	// 4. Processing Done: List clips from Storage
 	userFolder := ""
+	fileIdentifier := "" // e.g. "uuid-filename"
+	
 	if len(fileEntity.FilePath) > 0 {
-		parts := []rune(fileEntity.FilePath)
-		for i, ch := range parts {
-			if ch == '/' {
-				userFolder = string(parts[:i])
-				break
-			}
-		}
+		// user-id/uuid-filename.mp4
+		dir, file := filepath.Split(fileEntity.FilePath)
+		userFolder = filepath.Clean(dir) // "user-id"
+		ext := filepath.Ext(file)
+		fileIdentifier = file[:len(file)-len(ext)]
 	}
 
-	if userFolder == "" {
+	if userFolder == "" || fileIdentifier == "" {
 		uc.fileRepo.UpdateStatus(fid, "failed", 0)
-		return fmt.Errorf("failed to extract user folder from path: %s", fileEntity.FilePath)
+		return fmt.Errorf("failed to extract user folder or identifier from path: %s", fileEntity.FilePath)
 	}
 
 	clipsFolder := userFolder + "/clips"
+	clipsFolder = filepath.ToSlash(clipsFolder) // Ensure forward slashes for storage API
 	
 	// Add retry logic for listing files (Eventual Consistency)
 	var clipPaths []string
 	maxRetries := 3
 	for i := 0; i < maxRetries; i++ {
-		clipPaths, err = uc.storageService.ListFiles(clipsFolder)
-		if err == nil && len(clipPaths) > 0 {
-			break
+		allClips, err := uc.storageService.ListFiles(clipsFolder)
+		if err == nil {
+			// Filter clips belonging to this file
+			for _, p := range allClips {
+				// Check if clip path contains the fileIdentifier
+				// Clip path format: user-id/clips/uuid-filename_clip_0.mp4
+				if strings.Contains(filepath.Base(p), fileIdentifier) {
+					clipPaths = append(clipPaths, p)
+				}
+			}
+			
+			if len(clipPaths) > 0 {
+				break
+			}
 		}
 		if i < maxRetries-1 {
 			log.Printf("Retry listing clips (%d/%d)...", i+1, maxRetries)
