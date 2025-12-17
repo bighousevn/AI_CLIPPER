@@ -16,9 +16,10 @@ export default function VerifyClient() {
 
         (async () => {
             try {
+                console.log(`URL:${process.env.NEXT_PUBLIC_API_URL}/auth/verify-email?token=${token}`);
                 const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/verify-email?token=${token}`, {
                     method: "GET",
-                    credentials: "include",
+                    // credentials: "include",
                 });
                 if (!res.ok) throw new Error();
                 setStatus("ok");

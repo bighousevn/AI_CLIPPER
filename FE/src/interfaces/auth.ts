@@ -4,7 +4,7 @@ export interface LoginResponse {
 }
 
 export interface UserResponse {
-    id: number;                 // ID người dùng (backend trả kiểu number)
+    id: string;                 // ID người dùng (backend trả kiểu number)
     username: string;           // Tên đăng nhập
     email: string;              // Email người dùng
     credits: number;            // Số credits còn lại
