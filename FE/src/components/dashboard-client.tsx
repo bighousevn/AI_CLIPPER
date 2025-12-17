@@ -32,6 +32,7 @@ import { useUploadClip } from "~/hooks/useUpload";
 import type { ClipConfig } from "~/interfaces/clipConfig";
 import type { Clip } from "~/interfaces/clip";
 import type { UploadFile } from "~/interfaces/uploadfile";
+import axiosClient from "~/lib/axiosClient";
 
 
 
@@ -66,8 +67,6 @@ export function DashboardClient({
         };
     }, [router]);
 
-
-
     const [files, setFiles] = useState<File[]>([]);
 
     const form = useForm<ClipConfig>({
@@ -86,20 +85,14 @@ export function DashboardClient({
     const { mutate, isPending } = useUploadClip();
 
     const handleUpload = async () => {
-        // Kiểm tra validation của form trước
+
         const isValid = await form.trigger();
         if (!isValid || files.length === 0) return;
 
         try {
             const item = files[0] as File;
-
-            // Lấy data từ form (vẫn chứa aspectRatio)
             const rawValues = form.getValues();
-
-            // Chuyển đổi sang định dạng Server cần (chứa targetWidth, targetHeight)
             const apiData = transformToApiData(rawValues);
-
-            // Gửi apiData lên server
             await mutate({ file: item, config: apiData });
         } finally {
         }
@@ -154,7 +147,7 @@ export function DashboardClient({
                                 </DropzoneContent>
                             </Dropzone>
                             {files.length > 0 && (
-                                <Card className="mt-6 animate-in fade-in slide-in-from-bottom-4 duration-300" >
+                                <Card className="mt-6 animate-in fade-in slide-in-from-bottom-4 duration-300"  >
                                     <CardHeader>
                                         <CardTitle>Video Configuration</CardTitle>
                                         <CardDescription>
@@ -162,8 +155,8 @@ export function DashboardClient({
                                         </CardDescription>
                                     </CardHeader>
 
-                                    <CardContent >
-                                        <Form {...form} >
+                                    <CardContent  >
+                                        <Form {...form}  >
                                             <form className="space-y-4">
                                                 <fieldset disabled={isPending} className="space-y-4 opacity-100">
                                                     {/* Prompt */}
@@ -223,7 +216,7 @@ export function DashboardClient({
                                                                         <SelectItem value="9:16">9:16 (TikTok, Reels)</SelectItem>
                                                                         <SelectItem value="16:9">16:9 (YouTube)</SelectItem>
                                                                         <SelectItem value="1:1">1:1 (Square)</SelectItem>
-                                                                        <SelectItem value=" ">Auto</SelectItem>
+                                                                        <SelectItem value="4:3">4:3 (Instagram)</SelectItem>
                                                                     </SelectContent>
                                                                 </Select>
                                                             </FormItem>
@@ -285,10 +278,10 @@ export function DashboardClient({
                                                         <TableCell className="text-muted-foreground text-sm">
                                                             {new Date(item.created_at).toLocaleDateString()}
                                                         </TableCell>
-                                                        <TableCell>
+                                                        <TableCell className="text-muted-foreground text-sm">
                                                             {item.status === "queued" && <Badge variant="outline">Queued</Badge>}
                                                             {item.status === "processing" && <Badge variant="outline">Processing</Badge>}
-                                                            {item.status === "success" && <Badge variant="outline">Success</Badge>}
+                                                            {item.status === "success" && <Badge variant="secondary">Success</Badge>}
                                                             {item.status === "no credits" && <Badge variant="destructive">No credits</Badge>}
                                                             {item.status === "failed" && <Badge variant="destructive">Failed</Badge>}
                                                         </TableCell>
