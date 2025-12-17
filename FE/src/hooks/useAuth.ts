@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import axiosClient from "~/lib/axiosClient";
-import type { UserResponse } from "~/interfaces/Auth";
+import type { UserResponse } from "~/interfaces/auth";
 
 export function useAuth() {
     const [user, setUser] = useState<UserResponse | null>(null);
