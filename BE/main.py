@@ -589,8 +589,7 @@ class AiPodcastClipper:
 
                                   
        # --- Retry & Fallback Logic ---
-        # Fallback list: Flash 1.5 (Fast/Cheap) -> Pro 1.5 (Smart) -> Pro 1.0 (Legacy/Stable)
-        models_to_try = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro"]
+        models_to_try = ["gemini-3-pro-preview","gemini-2.5-pro","gemini-2.5-flash", "gemini-2.5-flash-preview-09-2025","gemini-2.5-flash-lite"]
         max_retries_per_model = 3
         retry_delay_seconds = 5 
         
