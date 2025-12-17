@@ -428,10 +428,16 @@ class AiPodcastClipper:
         print("Created Supabase client.")
 
     def process_clip(self, base_dir: str, original_video_path: str, start_time: float, end_time: float, clip_index: int, transcript_segments: list, storage_path: str, config: VideoConfig ):
-        clip_name = f"clip_{clip_index}"
+        # Extract unique identifier from storage_path to prevent collisions
+        # storage_path format: "user-xxx/uuid-filename.mp4"
+        path_parts = storage_path.split("/")
+        filename_with_ext = path_parts[-1]
+        file_identifier = os.path.splitext(filename_with_ext)[0] # "uuid-filename"
+
+        clip_name = f"{file_identifier}_clip_{clip_index}"
         
         # Extract folder from original storage_path (e.g., "user-xxx/uuid-video.mp4" -> "user-xxx")
-        storage_folder = "/".join(storage_path.split("/")[:-1])
+        storage_folder = "/".join(path_parts[:-1])
         output_s3_key = f"{storage_folder}/clips/{clip_name}.mp4"
         
       
@@ -582,47 +588,47 @@ class AiPodcastClipper:
         The transcript is as follows:\n\n""" + str(transcript)
 
                                   
-       # --- Retry Logic ---
-        max_retries = 3
-        retry_delay_seconds = 5 # Thời gian chờ giữa các lần thử lại
+       # --- Retry & Fallback Logic ---
+        # Fallback list: Flash 1.5 (Fast/Cheap) -> Pro 1.5 (Smart) -> Pro 1.0 (Legacy/Stable)
+        models_to_try = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro"]
+        max_retries_per_model = 3
+        retry_delay_seconds = 5 
+        
         last_error = None
-        
-        for attempt in range(max_retries):
-            try:
-                # --- API Call ---
-                response = self.gemini_client.models.generate_content(
-                    model="gemini-2.5-flash", 
-                    contents=prompt_content
-                )
-                
-                # --- Success ---
-                # Trả về kết quả nếu gọi API thành công
-                return response.text 
 
-            except google.genai.errors.ServerError as e:
-                # --- Lỗi Server (như 503) ---
-                print(f"Lỗi Server Gemini (Lần thử {attempt + 1}/{max_retries}): {e}")
-                last_error = e
-                if attempt < max_retries - 1:
-                    print(f"Đang thử lại sau {retry_delay_seconds} giây...")
-                    time.sleep(retry_delay_seconds)
-                    # Tùy chọn: Tăng thời gian chờ (exponential backoff)
-                    # retry_delay_seconds *= 2 
-                else:
-                    print("Đã đạt số lần thử lại tối đa. Báo lỗi.")
-            
-            except Exception as e:
-                # --- Các lỗi không mong muốn khác (ví dụ: lỗi xác thực) ---
-                print(f"Lỗi không mong muốn khi gọi Gemini: {e}")
-                # Không thử lại với các lỗi này, báo lỗi ngay
-                raise e 
+        for model_name in models_to_try:
+            print(f"Trying model: {model_name}")
+            for attempt in range(max_retries_per_model):
+                try:
+                    # --- API Call ---
+                    response = self.gemini_client.models.generate_content(
+                        model=model_name, 
+                        contents=prompt_content
+                    )
+                    
+                    # --- Success ---
+                    print(f"Successfully generated content using {model_name}")
+                    return response.text 
+
+                except google.genai.errors.ServerError as e:
+                    # --- Lỗi Server (503) ---
+                    print(f"Error with {model_name} (Attempt {attempt + 1}/{max_retries_per_model}): {e}")
+                    last_error = e
+                    if attempt < max_retries_per_model - 1:
+                        print(f"Retrying in {retry_delay_seconds} seconds...")
+                        time.sleep(retry_delay_seconds)
                 
-        # Nếu vòng lặp kết thúc mà không thành công (do lỗi ServerError)
-        if last_error:
-            raise last_error
-        
-        # Trường hợp dự phòng (không thể xảy ra nếu logic đúng)
-        raise Exception("Không thể lấy phản hồi từ Gemini sau khi đã thử lại.")
+                except Exception as e:
+                    # --- Lỗi khác (400, Auth...) ---
+                    print(f"Unexpected error with {model_name}: {e}")
+                    last_error = e
+                    # Với lỗi không phải ServerError, break để thử model khác ngay
+                    break 
+            
+            print(f"Failed with {model_name}. Switching to next model...")
+
+        # Nếu chạy hết các model mà vẫn không return
+        raise Exception(f"All models failed. Last error: {last_error}")
 
 
     @modal.fastapi_endpoint(method="POST")
@@ -706,8 +712,8 @@ def main():
     payload = {
         "storage_path": "test/aaaa.mp4",
         "config": {
-            "prompt": "funny moments",
-            "clip_count": 3,
+            "prompt": "interesting topics about mi6",
+            "clip_count": 1,
             "target_width": 1080,
             "target_height": 1920,
             "subtitle": True
