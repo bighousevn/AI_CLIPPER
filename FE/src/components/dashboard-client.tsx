@@ -68,8 +68,8 @@ export function DashboardClient({
         resolver: zodResolver(ClipConfigSchema),
         defaultValues: {
             prompt: "",
-            clipCount: 1,
-            aspectRatio: "9:16",
+            clip_count: 1,
+            aspect_ratio: "9:16",
             subtitle: false,
         },
     });
@@ -176,7 +176,7 @@ export function DashboardClient({
                                                     {/* Number of clips */}
                                                     <FormField
                                                         control={form.control}
-                                                        name="clipCount"
+                                                        name="clip_count"
                                                         render={({ field }) => (
                                                             <FormItem>
                                                                 <FormLabel>Number of clips</FormLabel>
@@ -197,7 +197,7 @@ export function DashboardClient({
                                                     {/* Aspect Ratio */}
                                                     <FormField
                                                         control={form.control}
-                                                        name="aspectRatio"
+                                                        name="aspect_ratio"
                                                         render={({ field }) => (
                                                             <FormItem>
                                                                 <FormLabel>Aspect Ratio</FormLabel>

@@ -1,14 +1,14 @@
 export interface ClipConfig {
     prompt: string;
-    clipCount: number;
-    aspectRatio: "9:16" | "16:9" | "1:1" | "3:4"  // sửa đây
+    clip_count: number;
+    aspect_ratio: "9:16" | "16:9" | "1:1" | "3:4"  // sửa đây
     subtitle: boolean;
 }
 
 export interface ClipConfigAPI {
     prompt: string;
-    clipCount: number;
-    targetWidth: number;
-    targetHeight: number;
+    clip_count: number;
+    target_width: number;
+    target_height: number;
     subtitle: boolean
 }
