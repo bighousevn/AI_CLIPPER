@@ -3,7 +3,9 @@ package application
 import (
 	"ai-clipper/server2/internal/file/domain/clip"
 	"ai-clipper/server2/internal/file/domain/file"
+	userDomain "ai-clipper/server2/internal/auth/domain/user"
 	messagedomain "ai-clipper/server2/internal/messaging/domain"
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -18,6 +20,7 @@ import (
 type FileUseCase struct {
 	fileRepo         file.FileRepository
 	clipRepo         clip.ClipRepository
+	userRepo         userDomain.UserRepository
 	storageService   StorageService
 	modalService     ModalService
 	messagePublisher messagedomain.MessagePublisher
@@ -27,6 +30,7 @@ type FileUseCase struct {
 func NewFileUseCase(
 	fileRepo file.FileRepository,
 	clipRepo clip.ClipRepository,
+	userRepo userDomain.UserRepository,
 	storageService StorageService,
 	modalService ModalService,
 	messagePublisher messagedomain.MessagePublisher,
@@ -34,6 +38,7 @@ func NewFileUseCase(
 	return &FileUseCase{
 		fileRepo:         fileRepo,
 		clipRepo:         clipRepo,
+		userRepo:         userRepo,
 		storageService:   storageService,
 		modalService:     modalService,
 		messagePublisher: messagePublisher,
@@ -50,6 +55,9 @@ func (uc *FileUseCase) UploadFile(dto FileUploadDTO) (*FileResponseDTO, error) {
 		log.Printf("Invalid user ID: %v", err)
 		return nil, errors.New("invalid user ID")
 	}
+
+	// Sanitize filename: replace spaces with underscores to avoid issues in processing
+	dto.Header.Filename = strings.ReplaceAll(dto.Header.Filename, " ", "_")
 
 	// Upload file to storage
 	filePath, err := uc.storageService.Upload(dto.File, dto.Header, dto.UserID)
@@ -176,6 +184,7 @@ func (uc *FileUseCase) GetUserFiles(userID string) ([]*FileResponseDTO, error) {
 // ProcessVideo handles the actual video processing logic (called by Worker)
 func (uc *FileUseCase) ProcessVideo(fileID, userID string, config file.VideoConfig) error {
 	log.Printf("Worker starting processing for file: %s, user: %s", fileID, userID)
+	ctx := context.Background()
 
 	// Parse IDs
 	fid, err := uuid.Parse(fileID)
@@ -188,12 +197,46 @@ func (uc *FileUseCase) ProcessVideo(fileID, userID string, config file.VideoConf
 		return fmt.Errorf("invalid user ID: %w", err)
 	}
 
+	// 0. Check Credits
+	user, err := uc.userRepo.FindByID(ctx, uid)
+	if err != nil {
+		return fmt.Errorf("failed to find user: %w", err)
+	}
+	if user == nil {
+		return errors.New("user not found")
+	}
+
+	if user.Credits < 1 {
+		log.Printf("User %s has insufficient credits (%d). Marking file as no_credit.", uid, user.Credits)
+		uc.fileRepo.UpdateStatus(fid, "no_credit", 0)
+		uc.messagePublisher.PublishStatusUpdate(fileID, userID, "no_credit", 0)
+		return errors.New("insufficient credits")
+	}
+
+	// Deduct credit
+	user.Credits--
+	if err := uc.userRepo.Save(ctx, user); err != nil {
+		return fmt.Errorf("failed to deduct credit: %w", err)
+	}
+	log.Printf("Deducted 1 credit from user %s. Remaining: %d", uid, user.Credits)
+
+	// Refund helper
+	refundCredit := func() {
+		log.Printf("Refunding 1 credit to user %s due to processing failure.", uid)
+		user.Credits++
+		if err := uc.userRepo.Save(ctx, user); err != nil {
+			log.Printf("CRITICAL: Failed to refund credit to user %s: %v", uid, err)
+		}
+	}
+
 	// 1. Get file info to get path
 	fileEntity, err := uc.fileRepo.FindByID(fid)
 	if err != nil {
+		refundCredit()
 		return fmt.Errorf("failed to find file: %w", err)
 	}
 	if fileEntity == nil {
+		refundCredit()
 		return errors.New("file not found")
 	}
 
@@ -209,6 +252,9 @@ func (uc *FileUseCase) ProcessVideo(fileID, userID string, config file.VideoConf
 	if err != nil {
 		log.Printf("Modal processing failed for file %s: %v", fid, err)
 		
+		// Refund credit on failure
+		refundCredit()
+
 		// Update status to FAILED
 		uc.fileRepo.UpdateStatus(fid, "failed", 0)
 		
@@ -228,16 +274,12 @@ func (uc *FileUseCase) ProcessVideo(fileID, userID string, config file.VideoConf
 		}
 
 		// CLEANUP: Delete any partial clips
-		// Construct clips folder path manually (assuming convention user-id/uuid-filename)
-		// Or better, reuse the logic below to find folder
 		userFolder := ""
 		if len(fileEntity.FilePath) > 0 {
-			parts := []rune(fileEntity.FilePath)
-			for i, ch := range parts {
-				if ch == '/' {
-					userFolder = string(parts[:i])
-					break
-				}
+			// Extract "user-id" from "user-id/filename"
+			parts := strings.Split(fileEntity.FilePath, "/")
+			if len(parts) > 0 {
+				userFolder = parts[0]
 			}
 		}
 		
@@ -245,14 +287,21 @@ func (uc *FileUseCase) ProcessVideo(fileID, userID string, config file.VideoConf
 			clipsFolder := userFolder + "/clips"
 			// List and delete
 			if partialClips, listErr := uc.storageService.ListFiles(clipsFolder); listErr == nil {
+				// We need to identify clips belonging to THIS file to be safe.
+				// Since we use UUID for file names now, we can filter by that UUID.
+				// fileEntity.FilePath is like "user-id/UUID.ext"
+				// Clip name is like "UUID_clip_0.mp4"
+				
+				fileUUID := strings.TrimSuffix(filepath.Base(fileEntity.FilePath), filepath.Ext(fileEntity.FilePath))
+
 				for _, pClip := range partialClips {
-					// Only delete clips belonging to this file (need naming convention update first to be safe, 
-					// but for now we delete everything in clips folder? NO, that's dangerous if shared.
-					// Since we haven't implemented unique clip naming yet, this might delete other clips.
-					// SAFE BET: Only delete original file for now until unique naming is implemented.
-					// However, if the folder is per-user, and we assume sequential processing...
-					// Let's hold off on deleting clips until unique naming is in place.
-					_ = pClip
+					if strings.Contains(filepath.Base(pClip), fileUUID) {
+						if delErr := uc.storageService.Delete(pClip); delErr != nil {
+							log.Printf("Cleanup warning: Failed to delete partial clip %s: %v", pClip, delErr)
+						} else {
+							log.Printf("Cleanup: Deleted partial clip %s", pClip)
+						}
+					}
 				}
 			}
 		}
@@ -273,6 +322,7 @@ func (uc *FileUseCase) ProcessVideo(fileID, userID string, config file.VideoConf
 	}
 
 	if userFolder == "" || fileIdentifier == "" {
+		refundCredit() // Refund if we can't process clips
 		uc.fileRepo.UpdateStatus(fid, "failed", 0)
 		return fmt.Errorf("failed to extract user folder or identifier from path: %s", fileEntity.FilePath)
 	}
@@ -320,11 +370,12 @@ func (uc *FileUseCase) ProcessVideo(fileID, userID string, config file.VideoConf
 		savedCount++
 	}
 
-	// 6. Update Status to SUCCESS
+	// 6. Update Status to SUCCESS or FAILED if no clips
 	finalStatus := "success"
 	if savedCount == 0 {
 		finalStatus = "failed"
-		log.Printf("Video processing completed but no clips were found/generated. Marking as failed.")
+		log.Printf("Video processing completed but no clips were found/generated. Marking as failed and refunding.")
+		refundCredit() // Refund if AI produced no output
 	} else {
 		log.Printf("Video processing completed successfully. Saved %d clips.", savedCount)
 	}
