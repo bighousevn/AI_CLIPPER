@@ -1,106 +1,125 @@
 "use client";
+
 import { cn } from "~/lib/utils";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from "./ui/card";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Button } from "./ui/button";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
 import Link from "next/link";
 import { loginSchema, type LoginFormValues } from "~/schemas/auth";
 import { useRouter } from "next/navigation";
 import { login } from "~/services/authService";
+import { useMutation } from "@tanstack/react-query";
 import type { AxiosError } from "axios";
 
 export function LoginForm({
     className,
     ...props
 }: React.ComponentProps<"div">) {
-
-    const [error, setError] = useState<string | null>(null);
-    const [submitting, setSubmitting] = useState(false);
     const router = useRouter();
 
-    const { register, handleSubmit, formState: { errors } } = useForm<LoginFormValues>({
+    const {
+        register,
+        handleSubmit,
+        formState: { errors },
+    } = useForm<LoginFormValues>({
         resolver: zodResolver(loginSchema),
-    })
-    const onSubmit = async (data: LoginFormValues) => {
-        try {
-            setSubmitting(true);
-            setError(null);
-            const res = await login(data);
-            if (res) {
-                router.push("/dashboard");
-            }
-        } catch (err) {
-            const error = err as AxiosError<{ message?: string }>;
-            const message = error.response?.data?.message || "Invalid email or password.";
-            setError(message);
-        }
-        finally {
-            setSubmitting(false);
-        }
+    });
+
+    const mutation = useMutation({
+        mutationFn: async (data: LoginFormValues) => await login(data),
+        onSuccess: () => {
+            router.push("/dashboard");
+        },
+        onError: (err: AxiosError<{ message?: string }>) => { },
+    });
+
+    const onSubmit = (data: LoginFormValues) => {
+        mutation.mutate(data);
     };
 
     return (
         <div className={cn("flex flex-col gap-6", className)} {...props}>
-            <Card>
-                <CardHeader>
-                    <CardTitle>Login</CardTitle>
+            <Card className="border border-border shadow-sm">
+                <CardHeader className="space-y-2">
+                    <CardTitle className="text-2xl font-semibold">Login</CardTitle>
                     <CardDescription>
-                        Enter your email below to sign up to your account
+                        Enter your credentials to access your dashboard
                     </CardDescription>
                 </CardHeader>
+
                 <CardContent>
-                    <form onSubmit={handleSubmit(onSubmit)} noValidate>
-                        <div className="flex flex-col gap-6">
-                            <div className="grid gap-3">
-                                <Label htmlFor="email">Email</Label>
-                                <Input
-                                    id="email"
-                                    type="email"
-                                    placeholder="m@example.com"
-                                    required
-                                    {...register("email")}
-                                />
-                                {errors.email && <p className="text-red-500">{errors.email.message}</p>}
-                            </div>
-                            <div className="grid gap-3">
-                                <div className="flex items-center">
-                                    <Label htmlFor="password">Password</Label>
-
-                                </div>
-                                <Input id="password" type="password" required
-                                    autoComplete="current-password"
-                                    {...register("password")} />
-                                {errors.password && <p className="text-red-500">{errors.password.message}</p>}
-                            </div>
-                            <div className="flex flex-col gap-3">
-                                {error && <p className="text-red-500 rounded-md bg-red-50 p-3 text-sm">{error}</p>}
-
-                                <Button type="submit" className="w-full" disabled={submitting}>
-                                    {submitting ? "Logging in..." : "Login"}
-                                </Button>
-
-                            </div>
+                    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
+                        <div className="space-y-3">
+                            <Label htmlFor="email">Email</Label>
+                            <Input
+                                id="email"
+                                type="email"
+                                placeholder="m@example.com"
+                                {...register("email")}
+                            />
+                            {errors.email && (
+                                <p className="text-sm text-red-500">{errors.email.message}</p>
+                            )}
                         </div>
-                        <div className="mt-4 text-center text-sm">
-                            Don&apos;t have an account?{" "}
-                            <Link href="/signup" className="underline underline-offset-4">
+
+                        <div className="space-y-3">
+                            <div className="flex justify-between items-center">
+                                <Label htmlFor="password">Password</Label>
+                                <Link
+                                    href="/forgot-password"
+                                    className="text-xs text-primary underline-offset-4 hover:underline"
+                                >
+                                    Forgot?
+                                </Link>
+                            </div>
+                            <Input
+                                id="password"
+                                type="password"
+                                autoComplete="current-password"
+                                {...register("password")}
+                            />
+                            {errors.password && (
+                                <p className="text-sm text-red-500">{errors.password.message}</p>
+                            )}
+                        </div>
+
+                        {/* Error từ mutation */}
+                        {mutation.isError && (
+                            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-3">
+                                {(mutation.error as AxiosError<{ message?: string }>)?.response?.data
+                                    ?.message || "Invalid email or password."}
+                            </p>
+                        )}
+
+                        <Button
+                            type="submit"
+                            className="w-full"
+                            disabled={mutation.isPending}
+                        >
+                            {mutation.isPending ? "Logging in..." : "Login"}
+                        </Button>
+
+                        <div className="text-center text-sm pt-2">
+                            Don’t have an account?{" "}
+                            <Link
+                                href="/signup"
+                                className="font-medium underline underline-offset-4 text-primary"
+                            >
                                 Sign up
-                            </Link>
-                        </div>
-                        {/* forgot password */}
-                        <div className="mt-4 text-center text-sm">
-                            Forgot password?{" "}
-                            <Link href="/forgot-password" className="underline underline-offset-4">
-                                Reset
                             </Link>
                         </div>
                     </form>
                 </CardContent>
             </Card>
         </div>
-    )
+    );
 }

@@ -3,17 +3,19 @@
 import { useState } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
+import { useMutation } from "@tanstack/react-query";
 
-import { Loader2 } from "lucide-react";
-import { AlertCircle, CheckCircle2 } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import {
-    Card, CardContent,
+    Card,
+    CardContent,
     CardDescription,
     CardHeader,
     CardTitle,
 } from "~/components/ui/card";
 import {
-    Form, FormControl,
+    Form,
+    FormControl,
     FormField,
     FormItem,
     FormLabel,
@@ -22,46 +24,45 @@ import {
 import { Input } from "~/components/ui/input";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "~/components/ui/button";
+import axiosClient from "~/lib/axiosClient";
+import { useRouter } from "next/navigation";
 
 const schema = z.object({
     email: z.string().email("Invalid email address"),
 });
 
-export default function ForgotPasswordPage() {
-    const [status, setStatus] = useState<"idle" | "sent" | "error">("idle");
+type ForgotSchema = z.infer<typeof schema>;
 
-    const form = useForm<z.infer<typeof schema>>({
+export default function ForgotPasswordPage() {
+    const [message, setMessage] = useState<string | null>(null);
+    const form = useForm<ForgotSchema>({
         resolver: zodResolver(schema),
         defaultValues: { email: "" },
     });
 
-    const onSubmit = async (values: z.infer<typeof schema>) => {
-        setStatus("idle");
-        try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/forgot-password`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(values),
-            });
+    const mutation = useMutation({
+        mutationFn: async (values: ForgotSchema) => {
+            const res = await axiosClient.post("/auth/forgot-password", values);
+            return res.data;
+        },
+        onSuccess: () => {
+            setMessage("If that email exists, reset instructions were sent.");
+        },
+        onError: () => {
+            setMessage("Something went wrong. Try again later.");
+        },
+    });
 
-            // Không cần check email tồn tại hay không
-            if (res.ok) {
-                setStatus("sent");
-            } else {
-                setStatus("error");
-            }
-        } catch {
-            setStatus("error");
-        }
+    const onSubmit = (values: ForgotSchema) => {
+        setMessage(null);
+        mutation.mutate(values);
     };
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
             <Card className="w-full max-w-md">
                 <CardHeader className="text-center">
-                    <CardTitle className="text-xl font-semibold">
-                        Forgot Password
-                    </CardTitle>
+                    <CardTitle className="text-xl font-semibold">Forgot Password</CardTitle>
                     <CardDescription>
                         Enter your email and we’ll send reset instructions.
                     </CardDescription>
@@ -80,7 +81,7 @@ export default function ForgotPasswordPage() {
                                             <Input
                                                 type="email"
                                                 placeholder="name@example.com"
-                                                disabled={status === "sent"}
+                                                disabled={mutation.isSuccess}
                                                 {...field}
                                             />
                                         </FormControl>
@@ -89,29 +90,29 @@ export default function ForgotPasswordPage() {
                                 )}
                             />
 
-                            {status === "sent" && (
+                            {mutation.isSuccess && (
                                 <div className="flex items-center gap-2 text-sm text-green-600">
                                     <CheckCircle2 className="h-4 w-4" />
-                                    If that email exists, we sent instructions to reset your password.
+                                    {message}
                                 </div>
                             )}
 
-                            {status === "error" && (
+                            {mutation.isError && (
                                 <div className="flex items-center gap-2 text-sm text-red-500">
                                     <AlertCircle className="h-4 w-4" />
-                                    Something went wrong. Try again later.
+                                    {message}
                                 </div>
                             )}
 
                             <Button
                                 className="w-full"
                                 type="submit"
-                                disabled={form.formState.isSubmitting || status === "sent"}
+                                disabled={mutation.isPending || mutation.isSuccess}
                             >
-                                {form.formState.isSubmitting && (
+                                {mutation.isPending && (
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                 )}
-                                {status === "sent" ? "Email Sent" : "Send Reset Link"}
+                                {mutation.isSuccess ? "Email Sent" : "Send Reset Link"}
                             </Button>
                         </form>
                     </Form>
