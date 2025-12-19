@@ -41,6 +41,7 @@
     "bcryptjs": "^3.0.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "event-source-polyfill": "^1.0.31",
     "js-cookie": "^3.0.5",
     "lucide-react": "^0.544.0",
     "next": "^15.2.3",
@@ -58,6 +59,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
     "@tailwindcss/postcss": "^4.0.15",
+    "@types/event-source-polyfill": "^1.0.5",
     "@types/node": "^20.14.10",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",

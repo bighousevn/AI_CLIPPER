@@ -12,7 +12,7 @@ export function useAuth() {
         const token = localStorage.getItem("accessToken");
         if (!token) {
             setLoading(false);
-            return; // ❌ Không tự refresh ở đây
+            return;
         }
 
         try {

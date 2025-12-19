@@ -12,16 +12,14 @@ import {
 } from "./ui/card";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
-
+import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Dropzone, DropzoneContent, DropzoneEmptyState } from "./ui/shadcn-io/dropzone";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Badge } from "./ui/badge";
 
 import { ClipDisplay } from "./clip-display";
-import { processingFile, uploadFile } from "~/services/uploadService";
 import { DropzoneVideoPreview } from "./DropzoneVideoPreview";
-import type z from "zod";
 import { ClipConfigSchema, transformToApiData } from "~/schemas/clipConfigSchema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
@@ -34,7 +32,6 @@ import type { Clip } from "~/interfaces/clip";
 import type { UploadFile } from "~/interfaces/uploadfile";
 
 
-
 export function DashboardClient({
     uploadedFiles,
     clips,
@@ -44,29 +41,34 @@ export function DashboardClient({
 
 }) {
 
+    const suggestedPrompts = [
+        "Funny moments",
+        "Key takeaways",
+        "Interesting questions",
+        "Actionable advice",
+        "Viral-worthy clips"
+    ];
+
     const router = useRouter();
 
     useEffect(() => {
-        const eventSource = new EventSource(
-            `${process.env.NEXT_PUBLIC_API_URL}/events`,
-            { withCredentials: true }
-        );
-        eventSource.onmessage = (event) => {
-            // Khi nhận event từ server, reload lại trang
-            router.refresh();
-        };
+        const token = localStorage.getItem("accessToken");
+        document.cookie = `access_token=${token}; path=/; samesite=lax;`;
+        const es = new EventSource(`${process.env.NEXT_PUBLIC_API_URL}/events`, {
+            withCredentials: true
+        });
+        es.onmessage = () => router.refresh();
+        es.addEventListener("video_status", () => {
+            router.refresh()
+            // settimeout 1 giây sau refresh thêm 1 lầ
+            setTimeout(() => {
+                router.refresh()
+            }, 1000);
+        });
+        es.onerror = () => es.close();
 
-        eventSource.onerror = (err) => {
-            console.error("SSE error", err);
-            eventSource.close();
-        };
-
-        return () => {
-            eventSource.close();
-        };
+        return () => es.close();
     }, [router]);
-
-
 
     const [files, setFiles] = useState<File[]>([]);
 
@@ -74,32 +76,41 @@ export function DashboardClient({
         resolver: zodResolver(ClipConfigSchema),
         defaultValues: {
             prompt: "",
-            clipCount: 1,
-            aspectRatio: "9:16",
+            clip_count: 1,
+            aspect_ratio: "9:16",
             subtitle: false,
         },
     });
 
     const handleDrop = (acceptedFiles: File[]) => {
-        setFiles(acceptedFiles);
+        if (acceptedFiles.length > 0) {
+            const newFile = acceptedFiles[0] as File;
+            const isDuplicate = uploadedFiles.some(
+                (uploadedFile) => uploadedFile.file_name === newFile.name
+            );
+
+            if (false) {
+                toast("File already exists", {
+                    position: "top-center",
+                    duration: 3000,
+                    description: `File "${newFile.name}" already exists. Please choose a different file name or upload a different file.`,
+                });
+            } else {
+                setFiles(acceptedFiles);
+            }
+        }
     };
     const { mutate, isPending } = useUploadClip();
 
     const handleUpload = async () => {
-        // Kiểm tra validation của form trước
+
         const isValid = await form.trigger();
         if (!isValid || files.length === 0) return;
 
         try {
             const item = files[0] as File;
-
-            // Lấy data từ form (vẫn chứa aspectRatio)
             const rawValues = form.getValues();
-
-            // Chuyển đổi sang định dạng Server cần (chứa targetWidth, targetHeight)
             const apiData = transformToApiData(rawValues);
-
-            // Gửi apiData lên server
             await mutate({ file: item, config: apiData });
         } finally {
         }
@@ -154,7 +165,7 @@ export function DashboardClient({
                                 </DropzoneContent>
                             </Dropzone>
                             {files.length > 0 && (
-                                <Card className="mt-6 animate-in fade-in slide-in-from-bottom-4 duration-300" >
+                                <Card className="mt-6 animate-in fade-in slide-in-from-bottom-4 duration-300"  >
                                     <CardHeader>
                                         <CardTitle>Video Configuration</CardTitle>
                                         <CardDescription>
@@ -162,8 +173,8 @@ export function DashboardClient({
                                         </CardDescription>
                                     </CardHeader>
 
-                                    <CardContent >
-                                        <Form {...form} >
+                                    <CardContent  >
+                                        <Form {...form}  >
                                             <form className="space-y-4">
                                                 <fieldset disabled={isPending} className="space-y-4 opacity-100">
                                                     {/* Prompt */}
@@ -180,6 +191,24 @@ export function DashboardClient({
                                                                         {...field}
                                                                     />
                                                                 </FormControl>
+                                                                <div className="flex flex-wrap gap-2 pt-2">
+                                                                    {suggestedPrompts.map((promptSuggestion) => (
+                                                                        <Badge
+                                                                            key={promptSuggestion}
+                                                                            variant="outline"
+                                                                            className="cursor-pointer"
+                                                                            onClick={() => {
+                                                                                const currentValue = form.getValues("prompt");
+                                                                                const newValue = currentValue
+                                                                                    ? `${currentValue}\n- ${promptSuggestion}`
+                                                                                    : `- ${promptSuggestion}`;
+                                                                                form.setValue("prompt", newValue, { shouldValidate: true });
+                                                                            }}
+                                                                        >
+                                                                            {promptSuggestion}
+                                                                        </Badge>
+                                                                    ))}
+                                                                </div>
                                                                 <FormMessage />
                                                             </FormItem>
                                                         )}
@@ -188,7 +217,7 @@ export function DashboardClient({
                                                     {/* Number of clips */}
                                                     <FormField
                                                         control={form.control}
-                                                        name="clipCount"
+                                                        name="clip_count"
                                                         render={({ field }) => (
                                                             <FormItem>
                                                                 <FormLabel>Number of clips</FormLabel>
@@ -209,7 +238,7 @@ export function DashboardClient({
                                                     {/* Aspect Ratio */}
                                                     <FormField
                                                         control={form.control}
-                                                        name="aspectRatio"
+                                                        name="aspect_ratio"
                                                         render={({ field }) => (
                                                             <FormItem>
                                                                 <FormLabel>Aspect Ratio</FormLabel>
@@ -223,7 +252,7 @@ export function DashboardClient({
                                                                         <SelectItem value="9:16">9:16 (TikTok, Reels)</SelectItem>
                                                                         <SelectItem value="16:9">16:9 (YouTube)</SelectItem>
                                                                         <SelectItem value="1:1">1:1 (Square)</SelectItem>
-                                                                        <SelectItem value=" ">Auto</SelectItem>
+                                                                        <SelectItem value="4:3">4:3 (Instagram)</SelectItem>
                                                                     </SelectContent>
                                                                 </Select>
                                                             </FormItem>
@@ -283,12 +312,16 @@ export function DashboardClient({
                                                     <TableRow key={item.id}>
                                                         <TableCell className="max-w-xs truncate font-medium">{item.file_name}</TableCell>
                                                         <TableCell className="text-muted-foreground text-sm">
-                                                            {new Date(item.created_at).toLocaleDateString()}
+                                                            {new Date(item.created_at).toLocaleString()}
                                                         </TableCell>
-                                                        <TableCell>
+                                                        <TableCell className="text-muted-foreground text-sm">
                                                             {item.status === "queued" && <Badge variant="outline">Queued</Badge>}
-                                                            {item.status === "processing" && <Badge variant="outline">Processing</Badge>}
-                                                            {item.status === "success" && <Badge variant="outline">Success</Badge>}
+                                                            {item.status === "processing" && (
+                                                                <div className="flex items-center">
+                                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing
+                                                                </div>
+                                                            )}
+                                                            {item.status === "success" && <Badge className="bg-green-600">Success</Badge>}
                                                             {item.status === "no credits" && <Badge variant="destructive">No credits</Badge>}
                                                             {item.status === "failed" && <Badge variant="destructive">Failed</Badge>}
                                                         </TableCell>

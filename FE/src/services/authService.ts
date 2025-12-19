@@ -1,5 +1,5 @@
 import type { AxiosError } from "axios";
-import type { LoginResponse } from "~/interfaces/Auth";
+import type { LoginResponse } from "~/interfaces/auth";
 import axiosClient from "~/lib/axiosClient";
 import { signupSchema, type LoginFormValues, type SignupFormValues } from "~/schemas/auth";
 
