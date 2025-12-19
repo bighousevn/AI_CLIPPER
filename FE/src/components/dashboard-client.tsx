@@ -52,10 +52,19 @@ export function DashboardClient({
     const router = useRouter();
 
     useEffect(() => {
+        const token = localStorage.getItem("accessToken");
+        document.cookie = `access_token=${token}; path=/; samesite=lax;`;
         const es = new EventSource(`${process.env.NEXT_PUBLIC_API_URL}/events`, {
             withCredentials: true
         });
         es.onmessage = () => router.refresh();
+        es.addEventListener("video_status", () => {
+            router.refresh()
+            // settimeout 1 giây sau refresh thêm 1 lầ
+            setTimeout(() => {
+                router.refresh()
+            }, 1000);
+        });
         es.onerror = () => es.close();
 
         return () => es.close();
@@ -80,7 +89,7 @@ export function DashboardClient({
                 (uploadedFile) => uploadedFile.file_name === newFile.name
             );
 
-            if (isDuplicate) {
+            if (false) {
                 toast("File already exists", {
                     position: "top-center",
                     duration: 3000,

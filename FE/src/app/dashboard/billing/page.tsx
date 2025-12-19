@@ -37,7 +37,7 @@ const plans: PricingPlan[] = [
         title: "Small Pack",
         price: "$20.00",
         description: "Perfect for occasional podcast creators",
-        features: ["50 credits", "No expiration", "Download all clips"],
+        features: ["20 credits", "No expiration", "Download all clips"],
         buttonText: "Buy 20 credits",
         buttonVariant: "outline",
         priceId: "small",
@@ -46,7 +46,7 @@ const plans: PricingPlan[] = [
         title: "Medium Pack",
         price: "$47.99",
         description: "Best value for regular podcasters",
-        features: ["150 credits", "No expiration", "Download all clips"],
+        features: ["50 credits", "No expiration", "Download all clips"],
         buttonText: "Buy 50 credits",
         buttonVariant: "default",
         isPopular: true,
@@ -57,7 +57,7 @@ const plans: PricingPlan[] = [
         title: "Large Pack",
         price: "$89.99",
         description: "Ideal for podcast studioes and agencies",
-        features: ["500 credits", "No expiration", "Download all clips"],
+        features: ["100 credits", "No expiration", "Download all clips"],
         buttonText: "Buy 100 credits",
         buttonVariant: "outline",
         isPopular: false,
@@ -76,7 +76,7 @@ function PricingCard({ plan }: { plan: PricingPlan }) {
         mutationFn: (priceId: PriceId) => buyCredits(priceId),
         onSuccess: (data) => {
             setMessage("Checkout created — redirecting...");
-            if (data?.url) window.location.href = data.url;
+            if (data?.checkout_url) window.location.href = data.checkout_url;
         },
         onError: (error: any) => {
             setMessage(
