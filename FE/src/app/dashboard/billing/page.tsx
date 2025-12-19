@@ -1,8 +1,10 @@
 "use client";
 
+import { useMutation } from "@tanstack/react-query";
 import type { VariantProps } from "class-variance-authority";
-import { ArrowLeftIcon, CheckIcon } from "lucide-react";
+import { ArrowLeftIcon, CheckIcon, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 import { Button, buttonVariants } from "~/components/ui/button";
 import {
     Card,
@@ -12,6 +14,7 @@ import {
     CardHeader,
     CardTitle,
 } from "~/components/ui/card";
+import axiosClient from "~/lib/axiosClient";
 // import { createCheckoutSession, type PriceId } from "~/lib/stripe";
 import { cn } from "~/lib/utils";
 
@@ -62,8 +65,25 @@ const plans: PricingPlan[] = [
         priceId: "large",
     },
 ];
-
+async function buyCredits(priceId: PriceId) {
+    const res = await axiosClient.post("/payment/checkout", { pack: priceId });
+    return res.data;
+}
 function PricingCard({ plan }: { plan: PricingPlan }) {
+    const [message, setMessage] = useState<string | null>(null);
+
+    const mutation = useMutation({
+        mutationFn: (priceId: PriceId) => buyCredits(priceId),
+        onSuccess: (data) => {
+            setMessage("Checkout created — redirecting...");
+            if (data?.url) window.location.href = data.url;
+        },
+        onError: (error: any) => {
+            setMessage(
+                error?.response?.data?.error || "Failed to create checkout session."
+            );
+        },
+    });
     return (
         <Card
             className={cn(
@@ -97,14 +117,18 @@ function PricingCard({ plan }: { plan: PricingPlan }) {
                 </ul>
             </CardContent>
             <CardFooter>
-                <form
-                    // action={() => createCheckoutSession(plan.priceId)}
+                <Button
+                    variant={plan.buttonVariant}
                     className="w-full"
+                    disabled={mutation.isPending}
+                    onClick={() => mutation.mutate(plan.priceId)}
                 >
-                    <Button variant={plan.buttonVariant} className="w-full" type="submit">
-                        {plan.buttonText}
-                    </Button>
-                </form>
+                    {mutation.isPending ? (
+                        <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                        plan.buttonText
+                    )}
+                </Button>
             </CardFooter>
         </Card>
     );

@@ -12,7 +12,7 @@ import {
 } from "./ui/card";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
-
+import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Dropzone, DropzoneContent, DropzoneEmptyState } from "./ui/shadcn-io/dropzone";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
@@ -30,7 +30,6 @@ import { useUploadClip } from "~/hooks/useUpload";
 import type { ClipConfig } from "~/interfaces/clipConfig";
 import type { Clip } from "~/interfaces/clip";
 import type { UploadFile } from "~/interfaces/uploadfile";
-import { EventSourcePolyfill } from "event-source-polyfill";
 
 
 export function DashboardClient({
@@ -42,20 +41,20 @@ export function DashboardClient({
 
 }) {
 
+    const suggestedPrompts = [
+        "Funny moments",
+        "Key takeaways",
+        "Interesting questions",
+        "Actionable advice",
+        "Viral-worthy clips"
+    ];
+
     const router = useRouter();
 
     useEffect(() => {
-        const token = localStorage.getItem("accessToken");
-        const es = new EventSourcePolyfill(
-            `${process.env.NEXT_PUBLIC_API_URL}/events`,
-            {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-                heartbeatTimeout: 60000,
-            }
-        );
-
+        const es = new EventSource(`${process.env.NEXT_PUBLIC_API_URL}/events`, {
+            withCredentials: true
+        });
         es.onmessage = () => router.refresh();
         es.onerror = () => es.close();
 
@@ -75,7 +74,22 @@ export function DashboardClient({
     });
 
     const handleDrop = (acceptedFiles: File[]) => {
-        setFiles(acceptedFiles);
+        if (acceptedFiles.length > 0) {
+            const newFile = acceptedFiles[0] as File;
+            const isDuplicate = uploadedFiles.some(
+                (uploadedFile) => uploadedFile.file_name === newFile.name
+            );
+
+            if (isDuplicate) {
+                toast("File already exists", {
+                    position: "top-center",
+                    duration: 3000,
+                    description: `File "${newFile.name}" already exists. Please choose a different file name or upload a different file.`,
+                });
+            } else {
+                setFiles(acceptedFiles);
+            }
+        }
     };
     const { mutate, isPending } = useUploadClip();
 
@@ -168,6 +182,24 @@ export function DashboardClient({
                                                                         {...field}
                                                                     />
                                                                 </FormControl>
+                                                                <div className="flex flex-wrap gap-2 pt-2">
+                                                                    {suggestedPrompts.map((promptSuggestion) => (
+                                                                        <Badge
+                                                                            key={promptSuggestion}
+                                                                            variant="outline"
+                                                                            className="cursor-pointer"
+                                                                            onClick={() => {
+                                                                                const currentValue = form.getValues("prompt");
+                                                                                const newValue = currentValue
+                                                                                    ? `${currentValue}\n- ${promptSuggestion}`
+                                                                                    : `- ${promptSuggestion}`;
+                                                                                form.setValue("prompt", newValue, { shouldValidate: true });
+                                                                            }}
+                                                                        >
+                                                                            {promptSuggestion}
+                                                                        </Badge>
+                                                                    ))}
+                                                                </div>
                                                                 <FormMessage />
                                                             </FormItem>
                                                         )}
@@ -271,12 +303,16 @@ export function DashboardClient({
                                                     <TableRow key={item.id}>
                                                         <TableCell className="max-w-xs truncate font-medium">{item.file_name}</TableCell>
                                                         <TableCell className="text-muted-foreground text-sm">
-                                                            {new Date(item.created_at).toLocaleDateString()}
+                                                            {new Date(item.created_at).toLocaleString()}
                                                         </TableCell>
                                                         <TableCell className="text-muted-foreground text-sm">
                                                             {item.status === "queued" && <Badge variant="outline">Queued</Badge>}
-                                                            {item.status === "processing" && <Badge variant="outline">Processing</Badge>}
-                                                            {item.status === "success" && <Badge variant="secondary">Success</Badge>}
+                                                            {item.status === "processing" && (
+                                                                <div className="flex items-center">
+                                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing
+                                                                </div>
+                                                            )}
+                                                            {item.status === "success" && <Badge className="bg-green-600">Success</Badge>}
                                                             {item.status === "no credits" && <Badge variant="destructive">No credits</Badge>}
                                                             {item.status === "failed" && <Badge variant="destructive">Failed</Badge>}
                                                         </TableCell>
