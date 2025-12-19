@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ClipConfig, ClipConfigAPI } from "~/interfaces/clipConfig";
+import type { ClipConfigAPI } from "~/interfaces/clipConfig";
 import { getUploadedFiles, uploadFile } from "~/services/uploadService";
 
 export function useUploadClip() {
@@ -12,7 +12,6 @@ export function useUploadClip() {
         },
 
         onSuccess: () => {
-            // Tự refresh danh sách uploadedFiles
             queryClient.invalidateQueries({ queryKey: ["uploaded-files"] });
         },
 
@@ -21,7 +20,6 @@ export function useUploadClip() {
         }
     });
 }
-//useUploadedFiles
 export function useUploadedFiles() {
     return useQuery(
         {

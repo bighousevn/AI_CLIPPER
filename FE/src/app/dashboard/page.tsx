@@ -10,7 +10,7 @@ import type { UploadFile } from "~/interfaces/uploadfile";
 export default function Dashboard() {
     const { user } = useAuth();
     const { data: uploadedFiles, isLoading, isError } = useUploadedFiles();
-    const { data: clips, isLoading: isClipsLoading, isError: isClipsError } = useClips();
+    const { data: clips } = useClips();
 
 
 
