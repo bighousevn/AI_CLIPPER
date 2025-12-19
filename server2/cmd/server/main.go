@@ -214,7 +214,7 @@ func main() {
 
 	// SSE Endpoint
 	sseController := sseHttp.NewSSEController(sseManager)
-	router.GET("/api/v1/events", middleware.AuthMiddleware(tokenGenerator), sseController.StreamEvents)
+	router.GET("/api/v1/events", middleware.SSEAuthMiddleware(tokenGenerator), sseController.StreamEvents)
 
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
