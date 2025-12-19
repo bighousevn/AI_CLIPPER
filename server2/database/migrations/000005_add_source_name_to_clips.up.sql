@@ -1,0 +1,1 @@
+ALTER TABLE clips ADD COLUMN source_name VARCHAR(255) DEFAULT '';

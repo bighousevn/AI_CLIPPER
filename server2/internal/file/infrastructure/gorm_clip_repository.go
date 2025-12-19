@@ -24,6 +24,7 @@ type ClipModel struct {
 	ID             uuid.UUID  `gorm:"type:uuid;primaryKey"`
 	UserID         uuid.UUID  `gorm:"type:uuid;not null;index"`
 	UploadedFileID uuid.UUID  `gorm:"type:uuid;not null;index"`
+	SourceName     string     `gorm:"type:varchar(255);default:''"` // Added source name
 	FilePath       string     `gorm:"type:varchar(500);not null"`
 	CreatedAt      time.Time  `gorm:"not null"`
 	DeletedAt      *time.Time `gorm:"index"` // For soft delete
@@ -40,6 +41,7 @@ func (r *GormClipRepository) Save(c *clip.Clip) error {
 		ID:             c.ID,
 		UserID:         c.UserID,
 		UploadedFileID: c.UploadedFileID,
+		SourceName:     c.SourceName,
 		FilePath:       c.FilePath,
 		CreatedAt:      c.CreatedAt,
 		DeletedAt:      c.DeletedAt,
@@ -110,6 +112,7 @@ func (r *GormClipRepository) toDomain(model *ClipModel) *clip.Clip {
 		ID:             model.ID,
 		UserID:         model.UserID,
 		UploadedFileID: model.UploadedFileID,
+		SourceName:     model.SourceName,
 		FilePath:       model.FilePath,
 		CreatedAt:      model.CreatedAt,
 		DeletedAt:      model.DeletedAt,

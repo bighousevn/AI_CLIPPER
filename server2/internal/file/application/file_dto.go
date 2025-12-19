@@ -30,6 +30,7 @@ type FileResponseDTO struct {
 type ClipResponseDTO struct {
 	ID             string `json:"id"`
 	UploadedFileID string `json:"uploaded_file_id"`
+	SourceName     string `json:"source_name"`
 	FilePath       string `json:"file_path"`
 	DownloadURL    string `json:"download_url"`
 	CreatedAt      string `json:"created_at"`

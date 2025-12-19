@@ -1,9 +1,9 @@
 package application
 
 import (
+	userDomain "ai-clipper/server2/internal/auth/domain/user"
 	"ai-clipper/server2/internal/file/domain/clip"
 	"ai-clipper/server2/internal/file/domain/file"
-	userDomain "ai-clipper/server2/internal/auth/domain/user"
 	messagedomain "ai-clipper/server2/internal/messaging/domain"
 	"context"
 	"errors"
@@ -115,12 +115,12 @@ func (uc *FileUseCase) UploadFile(dto FileUploadDTO) (*FileResponseDTO, error) {
 
 	if publishErr != nil {
 		log.Printf("CRITICAL: Failed to publish video processing message after retries: %v", publishErr)
-		
+
 		// Cleanup: Delete file metadata from DB
 		if err := uc.fileRepo.Delete(fileEntity.ID); err != nil {
 			log.Printf("Failed to delete file metadata during cleanup: %v", err)
 		}
-		
+
 		// Cleanup: Delete file from storage
 		if err := uc.storageService.Delete(fileEntity.FilePath); err != nil {
 			log.Printf("Failed to delete file from storage during cleanup: %v", err)
@@ -128,7 +128,7 @@ func (uc *FileUseCase) UploadFile(dto FileUploadDTO) (*FileResponseDTO, error) {
 
 		return nil, fmt.Errorf("failed to queue video for processing: %w", publishErr)
 	}
-	
+
 	// Success path
 	// Update status to "queued"
 	if updateErr := uc.fileRepo.UpdateStatus(fileEntity.ID, "queued", 0); updateErr != nil {
@@ -220,23 +220,49 @@ func (uc *FileUseCase) ProcessVideo(fileID, userID string, config file.VideoConf
 	}
 	log.Printf("Deducted 1 credit from user %s. Remaining: %d", uid, user.Credits)
 
-	// Refund helper
-	refundCredit := func() {
-		log.Printf("Refunding 1 credit to user %s due to processing failure.", uid)
-		user.Credits++
-		if err := uc.userRepo.Save(ctx, user); err != nil {
-			log.Printf("CRITICAL: Failed to refund credit to user %s: %v", uid, err)
+	// Refund helper with Retry logic
+	refundCredit := func() error {
+		var lastErr error
+		maxRetries := 3
+		for i := 0; i < maxRetries; i++ {
+			log.Printf("Refunding credit to user %s (Attempt %d/%d)", uid, i+1, maxRetries)
+			
+			// Reload user to ensure we have latest version (optimistic locking safety)
+			currentUser, err := uc.userRepo.FindByID(ctx, uid)
+			if err != nil {
+				lastErr = err
+				time.Sleep(500 * time.Millisecond)
+				continue
+			}
+			
+			currentUser.Credits++
+			if err := uc.userRepo.Save(ctx, currentUser); err != nil {
+				lastErr = err
+				log.Printf("Failed to refund attempt %d: %v", i+1, err)
+				time.Sleep(500 * time.Millisecond)
+				continue
+			}
+			
+			log.Printf("Successfully refunded credit to user %s", uid)
+			return nil
 		}
+		
+		log.Printf("CRITICAL: Failed to refund credit to user %s after %d attempts: %v", uid, maxRetries, lastErr)
+		return fmt.Errorf("failed to refund credit after retries: %w", lastErr)
 	}
 
 	// 1. Get file info to get path
 	fileEntity, err := uc.fileRepo.FindByID(fid)
 	if err != nil {
-		refundCredit()
+		if refErr := refundCredit(); refErr != nil {
+			return fmt.Errorf("failed to find file: %v, and refund failed: %w", err, refErr)
+		}
 		return fmt.Errorf("failed to find file: %w", err)
 	}
 	if fileEntity == nil {
-		refundCredit()
+		if refErr := refundCredit(); refErr != nil {
+			return fmt.Errorf("file not found, and refund failed: %w", refErr)
+		}
 		return errors.New("file not found")
 	}
 
@@ -244,6 +270,16 @@ func (uc *FileUseCase) ProcessVideo(fileID, userID string, config file.VideoConf
 	if err := uc.fileRepo.UpdateStatus(fid, "processing", 0); err != nil {
 		log.Printf("Failed to update status to processing: %v", err)
 		// Continue processing even if status update fails
+	} else {
+		// Notify frontend about processing start via SSE
+		if pubErr := uc.messagePublisher.PublishStatusUpdate(
+			fileEntity.ID.String(),
+			fileEntity.UserID.String(),
+			"processing",
+			0,
+		); pubErr != nil {
+			log.Printf("Warning: Failed to publish processing status: %v", pubErr)
+		}
 	}
 
 	// 3. Call Modal Service (BLOCKING until finished)
@@ -251,13 +287,13 @@ func (uc *FileUseCase) ProcessVideo(fileID, userID string, config file.VideoConf
 	err = uc.modalService.SendVideoToModal(fileEntity.FilePath, config)
 	if err != nil {
 		log.Printf("Modal processing failed for file %s: %v", fid, err)
-		
+
 		// Refund credit on failure
-		refundCredit()
+		refErr := refundCredit()
 
 		// Update status to FAILED
 		uc.fileRepo.UpdateStatus(fid, "failed", 0)
-		
+
 		// Notify failure via SSE
 		if pubErr := uc.messagePublisher.PublishStatusUpdate(
 			fileEntity.ID.String(),
@@ -282,16 +318,12 @@ func (uc *FileUseCase) ProcessVideo(fileID, userID string, config file.VideoConf
 				userFolder = parts[0]
 			}
 		}
-		
+
 		if userFolder != "" {
 			clipsFolder := userFolder + "/clips"
 			// List and delete
 			if partialClips, listErr := uc.storageService.ListFiles(clipsFolder); listErr == nil {
-				// We need to identify clips belonging to THIS file to be safe.
-				// Since we use UUID for file names now, we can filter by that UUID.
-				// fileEntity.FilePath is like "user-id/UUID.ext"
-				// Clip name is like "UUID_clip_0.mp4"
-				
+
 				fileUUID := strings.TrimSuffix(filepath.Base(fileEntity.FilePath), filepath.Ext(fileEntity.FilePath))
 
 				for _, pClip := range partialClips {
@@ -306,13 +338,16 @@ func (uc *FileUseCase) ProcessVideo(fileID, userID string, config file.VideoConf
 			}
 		}
 
+		if refErr != nil {
+			return fmt.Errorf("modal processing failed: %v, and refund failed: %w", err, refErr)
+		}
 		return fmt.Errorf("modal processing failed: %w", err)
 	}
 
 	// 4. Processing Done: List clips from Storage
 	userFolder := ""
 	fileIdentifier := "" // e.g. "uuid-filename"
-	
+
 	if len(fileEntity.FilePath) > 0 {
 		// user-id/uuid-filename.mp4
 		dir, file := filepath.Split(fileEntity.FilePath)
@@ -322,14 +357,16 @@ func (uc *FileUseCase) ProcessVideo(fileID, userID string, config file.VideoConf
 	}
 
 	if userFolder == "" || fileIdentifier == "" {
-		refundCredit() // Refund if we can't process clips
+		if refErr := refundCredit(); refErr != nil {
+			return fmt.Errorf("failed to extract user folder, and refund failed: %w", refErr)
+		}
 		uc.fileRepo.UpdateStatus(fid, "failed", 0)
 		return fmt.Errorf("failed to extract user folder or identifier from path: %s", fileEntity.FilePath)
 	}
 
 	clipsFolder := userFolder + "/clips"
 	clipsFolder = filepath.ToSlash(clipsFolder) // Ensure forward slashes for storage API
-	
+
 	// Add retry logic for listing files (Eventual Consistency)
 	var clipPaths []string
 	maxRetries := 3
@@ -344,7 +381,7 @@ func (uc *FileUseCase) ProcessVideo(fileID, userID string, config file.VideoConf
 					clipPaths = append(clipPaths, p)
 				}
 			}
-			
+
 			if len(clipPaths) > 0 {
 				break
 			}
@@ -362,7 +399,7 @@ func (uc *FileUseCase) ProcessVideo(fileID, userID string, config file.VideoConf
 	// 5. Save Clips to DB
 	savedCount := 0
 	for _, clipPath := range clipPaths {
-		clipEntity := clip.NewClip(uid, fid, clipPath)
+		clipEntity := clip.NewClip(uid, fid, fileEntity.FileName, clipPath)
 		if err := uc.clipRepo.Save(clipEntity); err != nil {
 			log.Printf("Failed to save clip %s: %v", clipPath, err)
 			continue
@@ -372,10 +409,13 @@ func (uc *FileUseCase) ProcessVideo(fileID, userID string, config file.VideoConf
 
 	// 6. Update Status to SUCCESS or FAILED if no clips
 	finalStatus := "success"
+	var processingErr error
 	if savedCount == 0 {
 		finalStatus = "failed"
 		log.Printf("Video processing completed but no clips were found/generated. Marking as failed and refunding.")
-		refundCredit() // Refund if AI produced no output
+		if refErr := refundCredit(); refErr != nil {
+			processingErr = fmt.Errorf("no clips generated and refund failed: %w", refErr)
+		}
 	} else {
 		log.Printf("Video processing completed successfully. Saved %d clips.", savedCount)
 	}
@@ -394,7 +434,7 @@ func (uc *FileUseCase) ProcessVideo(fileID, userID string, config file.VideoConf
 		log.Printf("Warning: Failed to publish status update: %v", err)
 	}
 
-	return nil
+	return processingErr
 }
 
 // GetClip retrieves a clip by ID with user authorization check
@@ -432,6 +472,7 @@ func (uc *FileUseCase) GetClip(clipID, userID string) (*ClipResponseDTO, error) 
 	return &ClipResponseDTO{
 		ID:             clipEntity.ID.String(),
 		UploadedFileID: clipEntity.UploadedFileID.String(),
+		SourceName:     clipEntity.SourceName,
 		FilePath:       clipEntity.FilePath,
 		DownloadURL:    downloadURL,
 		CreatedAt:      clipEntity.CreatedAt.Format("2006-01-02 15:04:05"),
@@ -497,6 +538,7 @@ func (uc *FileUseCase) GetUserClips(userID string) ([]*ClipResponseDTO, error) {
 		responses[i] = &ClipResponseDTO{
 			ID:             c.ID.String(),
 			UploadedFileID: c.UploadedFileID.String(),
+			SourceName:     c.SourceName,
 			FilePath:       c.FilePath,
 			DownloadURL:    downloadURL,
 			CreatedAt:      c.CreatedAt.Format("2006-01-02 15:04:05"),
