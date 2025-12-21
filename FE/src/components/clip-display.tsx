@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import type { Clip } from "~/interfaces/clip";
 import { Button } from "./ui/button";
 import { Download, Loader2, Play } from "lucide-react";
 import { Select, SelectTrigger, SelectItem, SelectContent, SelectValue } from "./ui/select";
 
 
-export function ClipDisplay({ clips }: { clips: Clip[] }) {
+export const ClipDisplay = memo(function ClipDisplay({ clips }: { clips: Clip[] }) {
     const [filterFile, setFilterFile] = useState<string>("all");
 
     // Lấy danh sách unique uploaded_file_id
@@ -75,7 +75,7 @@ export function ClipDisplay({ clips }: { clips: Clip[] }) {
             </div>
         </div>
     );
-}
+});
 function ClipCard({ clip }: { clip: Clip }) {
     const playUrl = clip.download_url;
     const [isLoadingUrl] = useState(false);
