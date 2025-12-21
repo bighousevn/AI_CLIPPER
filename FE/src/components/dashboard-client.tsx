@@ -84,20 +84,7 @@ export function DashboardClient({
 
     const handleDrop = (acceptedFiles: File[]) => {
         if (acceptedFiles.length > 0) {
-            const newFile = acceptedFiles[0] as File;
-            const isDuplicate = uploadedFiles.some(
-                (uploadedFile) => uploadedFile.file_name === newFile.name
-            );
-
-            if (false) {
-                toast("File already exists", {
-                    position: "top-center",
-                    duration: 3000,
-                    description: `File "${newFile.name}" already exists. Please choose a different file name or upload a different file.`,
-                });
-            } else {
-                setFiles(acceptedFiles);
-            }
+            setFiles(acceptedFiles);
         }
     };
     const { mutate, isPending } = useUploadClip();

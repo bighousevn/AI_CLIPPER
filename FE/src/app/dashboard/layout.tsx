@@ -1,14 +1,6 @@
 "use server";
-
-
 import { Toaster } from "sonner";
 import NavHeader from "~/components/ui/nav-header";
-
-interface User {
-    email: string;
-    credits: number;
-}
-
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
 
     return (

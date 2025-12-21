@@ -4,7 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import type { VariantProps } from "class-variance-authority";
 import { ArrowLeftIcon, CheckIcon, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { Toaster, toast } from "sonner";
 import { Button, buttonVariants } from "~/components/ui/button";
 import {
     Card,
@@ -70,18 +70,14 @@ async function buyCredits(priceId: PriceId) {
     return res.data;
 }
 function PricingCard({ plan }: { plan: PricingPlan }) {
-    const [message, setMessage] = useState<string | null>(null);
-
     const mutation = useMutation({
         mutationFn: (priceId: PriceId) => buyCredits(priceId),
         onSuccess: (data) => {
-            setMessage("Checkout created — redirecting...");
+            toast.success("Checkout created — redirecting...");
             if (data?.checkout_url) window.location.href = data.checkout_url;
         },
-        onError: (error: any) => {
-            setMessage(
-                error?.response?.data?.error || "Failed to create checkout session."
-            );
+        onError: () => {
+            toast.error("Failed to create checkout session.");
         },
     });
     return (
@@ -137,6 +133,7 @@ function PricingCard({ plan }: { plan: PricingPlan }) {
 export default function BillingPage() {
     return (
         <div className="mx-auto flex flex-col space-y-8 px-4 py-12">
+            <Toaster />
             <div className="relative flex items-center justify-center gap-4">
                 <Button
                     className="absolute top-0 left-0"
@@ -164,7 +161,6 @@ export default function BillingPage() {
                     <PricingCard key={plan.title} plan={plan} />
                 ))}
             </div>
-
             <div className="bg-muted/50 rounded-lg p-6">
                 <h3 className="mb-4 text-lg font-semibold">How credits work</h3>
                 <ul className="text-muted-foreground list-disc space-y-2 pl-5 text-sm">

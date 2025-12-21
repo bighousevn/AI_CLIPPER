@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { Clip } from "~/interfaces/clip";
 import { Button } from "./ui/button";
 import { Download, Loader2, Play } from "lucide-react";
@@ -72,7 +72,7 @@ export function ClipDisplay({ clips }: { clips: Clip[] }) {
 }
 function ClipCard({ clip }: { clip: Clip }) {
     const playUrl = clip.download_url;
-    const [isLoadingUrl, setIsLoadingUrl] = useState(false);
+    const [isLoadingUrl] = useState(false);
 
 
 

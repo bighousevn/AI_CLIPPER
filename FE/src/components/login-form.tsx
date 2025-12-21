@@ -39,7 +39,7 @@ export function LoginForm({
         onSuccess: () => {
             router.push("/dashboard");
         },
-        onError: (err: AxiosError<{ message?: string }>) => { },
+        onError: () => { },
     });
 
     const onSubmit = (data: LoginFormValues) => {

@@ -25,7 +25,6 @@ import { Input } from "~/components/ui/input";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "~/components/ui/button";
 import axiosClient from "~/lib/axiosClient";
-import { useRouter } from "next/navigation";
 
 const schema = z.object({
     email: z.string().email("Invalid email address"),

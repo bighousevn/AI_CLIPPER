@@ -13,7 +13,7 @@ export const login = async (data: LoginFormValues): Promise<LoginResponse> => {
     if (!email || !password) throw new Error("Email and password are required");
 
     const res = await axiosClient.post<LoginResponse>("/auth/login", data);
-    const { access_token: accessToken, message: message } = res.data;
+    const { access_token: accessToken } = res.data;
     localStorage.setItem("accessToken", accessToken);
     return res.data;
 };
