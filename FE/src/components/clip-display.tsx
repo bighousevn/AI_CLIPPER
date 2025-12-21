@@ -12,7 +12,13 @@ export function ClipDisplay({ clips }: { clips: Clip[] }) {
 
     // Lấy danh sách unique uploaded_file_id
     const fileOptions = useMemo(() => {
-        const ids = Array.from(new Set(clips.map(c => c.uploaded_file_id)));
+        const ids = Array.from(
+            new Set(
+                clips
+                    .map(c => c.source_name?.trim())
+                    .filter(x => x && x !== "")
+            )
+        );
         return ids;
     }, [clips]);
 
@@ -22,7 +28,7 @@ export function ClipDisplay({ clips }: { clips: Clip[] }) {
 
         // Filter theo uploaded_file_id
         if (filterFile !== "all") {
-            result = result.filter(c => c.uploaded_file_id === filterFile);
+            result = result.filter(c => c.source_name === filterFile);
         }
 
         // Sort mới nhất trước
