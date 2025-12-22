@@ -4,18 +4,18 @@ on:
   push:
     branches: ["main"]
     paths:
-      - "server/**"
+      - "server2/**"
   pull_request:
     branches: ["main"]
     paths:
-      - "server/**"
+      - "server2/**"
 
 jobs:
   test-and-lint:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./server
+        working-directory: ./server2
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -24,10 +24,10 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "1.25"
-          cache-dependency-path: server/go.sum
+          cache-dependency-path: server2/go.sum
 
       - name: Install Dependencies
-        run: go mod tidy
+        run: go mod download
 
       - name: Run tests
         run: go test -v ./...
@@ -36,7 +36,8 @@ jobs:
         run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
       - name: Run linter
-        run: golangci-lint run --path-prefix=./server
+        # Chạy linter trong thư mục server2
+        run: golangci-lint run --path-prefix=./server2
 
   security-scan:
     runs-on: ubuntu-latest
@@ -53,9 +54,7 @@ jobs:
         uses: github/codeql-action/init@v3
         with:
           languages: "go"
-
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
+          build-mode: autobuild
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
@@ -81,11 +80,12 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # Scan vulnerability trong thư mục server2
       - name: Scan for vulnerabilities before build
         uses: aquasecurity/trivy-action@master
         with:
-          scan-type: "fs" # Scan filesystem (source code and dependencies)
-          scan-ref: "."
+          scan-type: "fs"
+          scan-ref: "server2"
           format: "table"
           exit-code: "1"
           ignore-unfixed: true
@@ -95,9 +95,12 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./server
-          file: ./server/Dockerfile
+          context: ./server2
+          file: ./server2/Dockerfile
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/ai-clipper-go-be:${{ github.sha }}
+          # Tag image với commit SHA và latest để dễ deploy
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/ai-clipper-go-be:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/ai-clipper-go-be:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max

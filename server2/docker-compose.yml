@@ -1,27 +1,25 @@
-version: "3.8"
-
 services:
-  rabbitmq:
-    image: rabbitmq:3.12-management
-    container_name: ai_clipper_rabbitmq
-    ports:
-      - "5672:5672" # AMQP port
-      - "15672:15672" # Management UI
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+  # rabbitmq:
+  #   image: rabbitmq:3.12-management
+  #   container_name: ai_clipper_rabbitmq
+  #   ports:
+  #     - "5672:5672" # AMQP port
+  #     - "15672:15672" # Management UI
+  #   environment:
+  #     RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+  #     RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
+  #   volumes:
+  #     - rabbitmq_data:/var/lib/rabbitmq
+  #   healthcheck:
+  #     test: ["CMD", "rabbitmq-diagnostics", "ping"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
 
   # --- API Server ---
   backend-api:
     build:
-      context: ./server2
+      context: .
       dockerfile: Dockerfile
     container_name: ai_clipper_api
     restart: unless-stopped
@@ -40,7 +38,7 @@ services:
   # --- Video Processing Worker ---
   backend-worker:
     build:
-      context: ./server2
+      context: .
       dockerfile: Dockerfile
     container_name: ai_clipper_worker
     restart: unless-stopped
@@ -57,7 +55,7 @@ services:
   # --- Email Worker ---
   backend-worker-email:
     build:
-      context: ./server2
+      context: .
       dockerfile: Dockerfile
     container_name: ai_clipper_worker_email
     restart: unless-stopped

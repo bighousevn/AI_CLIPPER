@@ -1,0 +1,27 @@
+# Ignore git directory
+.git
+.gitignore
+
+# Ignore build artifacts
+bin/
+tmp/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Ignore Docker files
+Dockerfile
+docker-compose.yml
+
+# Ignore environment files (protect secrets)
+.env
+.env.example
+
+# Editor directories
+.vscode
+.idea
+
+# Logs
+logs/
+*.log
