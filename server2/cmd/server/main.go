@@ -85,7 +85,7 @@ func main() {
 	}
 	jwtConfig := authInfra.JWTConfig{
 		AccessSecret:  jwtSecret,
-		RefreshSecret: os.Getenv("JWT_REFRESH_SECRET"),
+		RefreshSecret: os.Getenv("REFRESH_JWT_SECRET"),
 		AccessExpiry:  time.Hour * 1,       // 1 hour
 		RefreshExpiry: time.Hour * 24 * 30, // 30 days
 	}
@@ -130,7 +130,7 @@ func main() {
 		log.Fatal("SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set")
 	}
 	storageClient := storage.NewClient(supabaseURL+"/storage/v1", supabaseKey, nil)
-	storageBucket := os.Getenv("SUPABASE_STORAGE_BUCKET")
+	storageBucket := os.Getenv("SUPABASE_BUCKET_NAME")
 	if storageBucket == "" {
 		storageBucket = "uploaded_files"
 	}

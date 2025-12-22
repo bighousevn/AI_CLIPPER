@@ -48,7 +48,7 @@ func main() {
 		log.Fatal("SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set")
 	}
 	storageClient := storage.NewClient(supabaseURL+"/storage/v1", supabaseKey, nil)
-	storageBucket := os.Getenv("SUPABASE_STORAGE_BUCKET")
+	storageBucket := os.Getenv("SUPABASE_BUCKET_NAME")
 	if storageBucket == "" {
 		storageBucket = "uploaded_files"
 	}

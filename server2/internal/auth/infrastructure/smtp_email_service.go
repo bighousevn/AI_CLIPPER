@@ -26,7 +26,7 @@ func NewSMTPEmailService() *SMTPEmailService {
 
 // SendVerificationEmail sends an email verification link
 func (s *SMTPEmailService) SendVerificationEmail(to, username, verificationToken string) error {
-	frontendURL := os.Getenv("FRONTEND_URL")
+	frontendURL := os.Getenv("FE_URL")
 	if frontendURL == "" {
 		frontendURL = "http://localhost:3000"
 	}
@@ -75,7 +75,7 @@ func (s *SMTPEmailService) SendVerificationEmail(to, username, verificationToken
 
 // SendPasswordResetEmail sends a password reset link
 func (s *SMTPEmailService) SendPasswordResetEmail(to, username, resetToken string) error {
-	frontendURL := os.Getenv("FRONTEND_URL")
+	frontendURL := os.Getenv("FE_URL")
 	if frontendURL == "" {
 		frontendURL = "http://localhost:3000"
 	}
