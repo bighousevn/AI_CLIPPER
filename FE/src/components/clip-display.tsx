@@ -1,18 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import type { Clip } from "~/interfaces/clip";
 import { Button } from "./ui/button";
 import { Download, Loader2, Play } from "lucide-react";
 import { Select, SelectTrigger, SelectItem, SelectContent, SelectValue } from "./ui/select";
 
 
-export function ClipDisplay({ clips }: { clips: Clip[] }) {
+export const ClipDisplay = memo(function ClipDisplay({ clips }: { clips: Clip[] }) {
     const [filterFile, setFilterFile] = useState<string>("all");
 
     // Lấy danh sách unique uploaded_file_id
     const fileOptions = useMemo(() => {
-        const ids = Array.from(new Set(clips.map(c => c.uploaded_file_id)));
+        const ids = Array.from(
+            new Set(
+                clips
+                    .map(c => c.source_name?.trim())
+                    .filter(x => x && x !== "")
+            )
+        );
         return ids;
     }, [clips]);
 
@@ -22,7 +28,7 @@ export function ClipDisplay({ clips }: { clips: Clip[] }) {
 
         // Filter theo uploaded_file_id
         if (filterFile !== "all") {
-            result = result.filter(c => c.uploaded_file_id === filterFile);
+            result = result.filter(c => c.source_name === filterFile);
         }
 
         // Sort mới nhất trước
@@ -69,10 +75,10 @@ export function ClipDisplay({ clips }: { clips: Clip[] }) {
             </div>
         </div>
     );
-}
+});
 function ClipCard({ clip }: { clip: Clip }) {
     const playUrl = clip.download_url;
-    const [isLoadingUrl, setIsLoadingUrl] = useState(false);
+    const [isLoadingUrl] = useState(false);
 
 
 

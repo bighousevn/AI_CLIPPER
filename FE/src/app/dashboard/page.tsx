@@ -1,14 +1,11 @@
 "use client";
 import { DashboardClient } from "~/components/dashboard-client";
-import { useAuth } from "~/hooks/useAuth";
 import { useClips } from "~/hooks/useClip";
 import { useUploadedFiles } from "~/hooks/useUpload";
-import type { UploadFile } from "~/interfaces/uploadfile";
 
 
 
 export default function Dashboard() {
-    const { user } = useAuth();
     const { data: uploadedFiles, isLoading, isError } = useUploadedFiles();
     const { data: clips } = useClips();
 
