@@ -27,3 +27,12 @@ export function useUploadedFiles() {
             queryFn: getUploadedFiles
         });
 }
+
+
+export function useRefreshUploadedFiles() {
+    const queryClient = useQueryClient();
+    return () =>
+        queryClient.invalidateQueries({
+            queryKey: ["uploaded-files"],
+        });
+}

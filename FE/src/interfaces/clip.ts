@@ -4,4 +4,5 @@ export interface Clip {
     file_path: string;
     download_url: string;
     created_at: string;
+    source_name: string;
 }
