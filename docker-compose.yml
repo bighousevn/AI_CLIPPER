@@ -8,8 +8,8 @@ services:
       - "5672:5672" # AMQP port
       - "15672:15672" # Management UI
     environment:
-      RABBITMQ_DEFAULT_USER: admin
-      RABBITMQ_DEFAULT_PASS: admin123
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
@@ -17,6 +17,59 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # --- API Server ---
+  backend-api:
+    build:
+      context: ./server2
+      dockerfile: Dockerfile
+    container_name: ai_clipper_api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672/
+    env_file:
+      - .env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    working_dir: /app/cmd/server
+    command: ["./server"]
+
+  # --- Video Processing Worker ---
+  backend-worker:
+    build:
+      context: ./server2
+      dockerfile: Dockerfile
+    container_name: ai_clipper_worker
+    restart: unless-stopped
+    environment:
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672/
+    env_file:
+      - .env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    working_dir: /app/cmd/worker
+    command: ["./worker"]
+
+  # --- Email Worker ---
+  backend-worker-email:
+    build:
+      context: ./server2
+      dockerfile: Dockerfile
+    container_name: ai_clipper_worker_email
+    restart: unless-stopped
+    environment:
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672/
+    env_file:
+      - .env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    working_dir: /app/cmd/worker-email
+    command: ["./worker-email"]
 
 volumes:
   rabbitmq_data:

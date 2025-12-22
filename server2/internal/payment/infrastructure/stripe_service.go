@@ -12,20 +12,16 @@ import (
 
 // StripeService handles interaction with Stripe API
 type StripeService struct {
-	secretKey     string
 	webhookSecret string
-	baseURL       string
 }
 
 // NewStripeService creates a new Stripe service
 func NewStripeService() *StripeService {
-	secretKey := os.Getenv("STRIPE_SECRET_KEY")
-	stripe.Key = secretKey
+	// Initialize global Stripe key
+	stripe.Key = os.Getenv("STRIPE_SECRET_KEY")
 
 	return &StripeService{
-		secretKey:     secretKey,
 		webhookSecret: os.Getenv("STRIPE_WEBHOOK_SECRET"),
-		baseURL:       os.Getenv("BASE_URL"),
 	}
 }
 

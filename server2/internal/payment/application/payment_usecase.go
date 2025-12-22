@@ -63,7 +63,7 @@ func (uc *PaymentUseCase) CreateCheckoutSession(ctx context.Context, userID uuid
 	}
 
 	// 3. Create Checkout Session
-	baseURL := os.Getenv("BASE_URL")
+	baseURL := os.Getenv("FE_URL")
 	if baseURL == "" {
 		baseURL = "http://localhost:3000"
 	}
