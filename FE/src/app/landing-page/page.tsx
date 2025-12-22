@@ -14,7 +14,7 @@ export default function LandingPage() {
                 <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
                     <div className="flex items-center gap-2 font-bold text-xl tracking-tighter">
                         <div className="w-8 h-8 bg-gradient-to-tr from-purple-600 to-blue-500 rounded-lg" />
-                        OPUS<span className="text-purple-400">CLONE</span>
+                        AI <span className="text-purple-400">CLIPPER</span>
                     </div>
                     <div className="hidden md:flex gap-8 text-sm font-medium text-zinc-400">
                         <Link href="#" className="hover:text-white transition">Product</Link>
@@ -35,31 +35,27 @@ export default function LandingPage() {
                     </Badge>
 
                     <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight leading-[1.1]">
-                        Biến video dài thành <br />
+                        Turn long videos into <br />
                         <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-500 to-red-500">
-                            Shorts triệu view
-                        </span> bằng AI
+                            viral Shorts
+                        </span> with AI
                     </h1>
 
                     <p className="text-zinc-400 text-lg md:text-xl max-w-2xl mx-auto">
-                        Công cụ AI đầu tiên có khả năng hiểu nội dung hình ảnh để tự động cắt ghép, thêm caption và tạo viral clip chỉ trong 1 cú click.
+                        The first AI tool that understands visual content to automatically clip, add captions, and create viral clips in just one click.
                     </p>
 
                     <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
                         <div className="relative w-full max-w-md group">
-                            <Input
-                                placeholder="Dán link YouTube, Drive hoặc Zoom tại đây..."
-                                className="h-14 bg-zinc-900 border-zinc-800 rounded-xl pr-32 focus-visible:ring-purple-500"
-                            />
-                            <Link href="/login" className="absolute right-2 top-2">
+                            <Link href="/dashboard" >
                                 <Button className="bg-purple-600 hover:bg-purple-700 rounded-lg">
-                                    Bắt đầu ngay
+                                    Get Started
                                 </Button>
                             </Link>
                         </div>
                     </div>
 
-                    <p className="text-xs text-zinc-500">Không cần thẻ tín dụng • 30 phút dùng thử miễn phí</p>
+                    <p className="text-xs text-zinc-500">No credit card required • Free trial available</p>
                 </div>
             </section>
 
@@ -68,18 +64,18 @@ export default function LandingPage() {
                 <div className="max-w-7xl mx-auto px-4 grid md:grid-cols-3 gap-8">
                     <FeatureCard
                         icon={<Video className="text-blue-400" />}
-                        title="Clip Anything"
-                        description="Tự động nhận diện các phân cảnh đắt giá nhất trong video của bạn."
+                        title="Smart Scene Cutting"
+                        description="Automatically identify and extract the most engaging highlights from your video."
                     />
                     <FeatureCard
                         icon={<Sparkles className="text-purple-400" />}
-                        title="AI B-roll"
-                        description="Thêm cảnh quay minh họa phù hợp với ngữ cảnh hoàn toàn tự động."
+                        title="Auto Subtitles"
+                        description="Generate accurate captions with customizable styles to boost engagement."
                     />
                     <FeatureCard
                         icon={<Wand2 className="text-pink-400" />}
-                        title="Auto Curation"
-                        description="Sắp xếp nội dung theo cấu trúc kể chuyện lôi cuốn nhất."
+                        title="Smart Reframe"
+                        description="Automatically resize videos to 9:16 vertical format while keeping the subject in focus."
                     />
                 </div>
             </section>
@@ -87,10 +83,10 @@ export default function LandingPage() {
             {/* --- Final CTA --- */}
             <section className="py-32 text-center">
                 <div className="max-w-3xl mx-auto px-4 space-y-6">
-                    <h2 className="text-4xl font-bold">Sẵn sàng bùng nổ kênh của bạn?</h2>
+                    <h2 className="text-4xl font-bold">Ready to grow your channel?</h2>
                     <Link href="/login">
                         <Button size="lg" className="h-16 px-10 text-lg bg-white text-black hover:bg-zinc-200 rounded-full transition-all hover:scale-105">
-                            Đăng nhập để trải nghiệm <MoveRight className="ml-2" />
+                            Sign in to start <MoveRight className="ml-2" />
                         </Button>
                     </Link>
                 </div>
