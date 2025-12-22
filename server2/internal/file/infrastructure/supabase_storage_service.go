@@ -34,7 +34,9 @@ func (s *SupabaseStorageService) Upload(file multipart.File, header *multipart.F
 	}
 
 	// Reset file pointer
-	file.Seek(0, 0)
+	if _, seekErr := file.Seek(0, 0); seekErr != nil {
+		return "", fmt.Errorf("failed to reset file pointer: %w", seekErr)
+	}
 
 	// Create file path: user-{userID}/{uuid}{ext}
 	fileID := uuid.New().String()

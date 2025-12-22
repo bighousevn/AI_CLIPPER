@@ -79,7 +79,9 @@ func (uc *FileUseCase) UploadFile(dto FileUploadDTO) (*FileResponseDTO, error) {
 	if !fileEntity.IsValidSize() {
 		log.Printf("File size exceeds limit: %d bytes", fileEntity.FileSize)
 		// Clean up uploaded file
-		uc.storageService.Delete(filePath)
+		if delErr := uc.storageService.Delete(filePath); delErr != nil {
+			log.Printf("Failed to delete file after validation failure: %v", delErr)
+		}
 		return nil, errors.New("file size exceeds maximum allowed limit")
 	}
 
@@ -87,7 +89,9 @@ func (uc *FileUseCase) UploadFile(dto FileUploadDTO) (*FileResponseDTO, error) {
 	if err := uc.fileRepo.Save(fileEntity); err != nil {
 		log.Printf("Failed to save file metadata: %v", err)
 		// Clean up uploaded file
-		uc.storageService.Delete(filePath)
+		if delErr := uc.storageService.Delete(filePath); delErr != nil {
+			log.Printf("Failed to delete file after save failure: %v", delErr)
+		}
 		return nil, err
 	}
 
@@ -208,8 +212,12 @@ func (uc *FileUseCase) ProcessVideo(fileID, userID string, config file.VideoConf
 
 	if user.Credits < 1 {
 		log.Printf("User %s has insufficient credits (%d). Marking file as no_credit.", uid, user.Credits)
-		uc.fileRepo.UpdateStatus(fid, "no_credit", 0)
-		uc.messagePublisher.PublishStatusUpdate(fileID, userID, "no_credit", 0)
+		if updateErr := uc.fileRepo.UpdateStatus(fid, "no_credit", 0); updateErr != nil {
+			log.Printf("Failed to update status to no_credit: %v", updateErr)
+		}
+		if pubErr := uc.messagePublisher.PublishStatusUpdate(fileID, userID, "no_credit", 0); pubErr != nil {
+			log.Printf("Failed to publish no_credit status: %v", pubErr)
+		}
 		return errors.New("insufficient credits")
 	}
 
@@ -226,7 +234,7 @@ func (uc *FileUseCase) ProcessVideo(fileID, userID string, config file.VideoConf
 		maxRetries := 3
 		for i := 0; i < maxRetries; i++ {
 			log.Printf("Refunding credit to user %s (Attempt %d/%d)", uid, i+1, maxRetries)
-			
+
 			// Reload user to ensure we have latest version (optimistic locking safety)
 			currentUser, err := uc.userRepo.FindByID(ctx, uid)
 			if err != nil {
@@ -234,7 +242,7 @@ func (uc *FileUseCase) ProcessVideo(fileID, userID string, config file.VideoConf
 				time.Sleep(500 * time.Millisecond)
 				continue
 			}
-			
+
 			currentUser.Credits++
 			if err := uc.userRepo.Save(ctx, currentUser); err != nil {
 				lastErr = err
@@ -242,11 +250,11 @@ func (uc *FileUseCase) ProcessVideo(fileID, userID string, config file.VideoConf
 				time.Sleep(500 * time.Millisecond)
 				continue
 			}
-			
+
 			log.Printf("Successfully refunded credit to user %s", uid)
 			return nil
 		}
-		
+
 		log.Printf("CRITICAL: Failed to refund credit to user %s after %d attempts: %v", uid, maxRetries, lastErr)
 		return fmt.Errorf("failed to refund credit after retries: %w", lastErr)
 	}
@@ -292,7 +300,9 @@ func (uc *FileUseCase) ProcessVideo(fileID, userID string, config file.VideoConf
 		refErr := refundCredit()
 
 		// Update status to FAILED
-		uc.fileRepo.UpdateStatus(fid, "failed", 0)
+		if updateErr := uc.fileRepo.UpdateStatus(fid, "failed", 0); updateErr != nil {
+			log.Printf("Failed to update status to failed: %v", updateErr)
+		}
 
 		// Notify failure via SSE
 		if pubErr := uc.messagePublisher.PublishStatusUpdate(
@@ -360,7 +370,9 @@ func (uc *FileUseCase) ProcessVideo(fileID, userID string, config file.VideoConf
 		if refErr := refundCredit(); refErr != nil {
 			return fmt.Errorf("failed to extract user folder, and refund failed: %w", refErr)
 		}
-		uc.fileRepo.UpdateStatus(fid, "failed", 0)
+		if updateErr := uc.fileRepo.UpdateStatus(fid, "failed", 0); updateErr != nil {
+			log.Printf("Failed to update status to failed: %v", updateErr)
+		}
 		return fmt.Errorf("failed to extract user folder or identifier from path: %s", fileEntity.FilePath)
 	}
 

@@ -177,7 +177,9 @@ func (uc *AuthUseCase) RefreshToken(ctx context.Context, refreshToken string) (*
 	if user.RefreshToken == nil || *user.RefreshToken != refreshToken {
 		// Token reuse detected, clear the token for security
 		user.RefreshToken = nil
-		uc.userRepo.Save(ctx, user) // Try to save, but deny refresh anyway
+		if saveErr := uc.userRepo.Save(ctx, user); saveErr != nil {
+			log.Printf("Failed to clear refresh token for security: %v", saveErr)
+		}
 		return nil, errors.New("refresh token mismatch or already used")
 	}
 

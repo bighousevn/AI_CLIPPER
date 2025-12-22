@@ -26,12 +26,12 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672/
+      - RABBITMQ_URL=${RABBITMQ_URL}
     env_file:
       - .env
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
+    # depends_on:
+    #   rabbitmq:
+    #     condition: service_healthy
     working_dir: /app/cmd/server
     command: ["./server"]
 
@@ -43,12 +43,12 @@ services:
     container_name: ai_clipper_worker
     restart: unless-stopped
     environment:
-      - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672/
+      - RABBITMQ_URL=${RABBITMQ_URL}
     env_file:
       - .env
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
+    # depends_on:
+    #   rabbitmq:
+    #     condition: service_healthy
     working_dir: /app/cmd/worker
     command: ["./worker"]
 
@@ -60,12 +60,12 @@ services:
     container_name: ai_clipper_worker_email
     restart: unless-stopped
     environment:
-      - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672/
+      - RABBITMQ_URL=${RABBITMQ_URL}
     env_file:
       - .env
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
+    # depends_on:
+    #   rabbitmq:
+    #     condition: service_healthy
     working_dir: /app/cmd/worker-email
     command: ["./worker-email"]
 

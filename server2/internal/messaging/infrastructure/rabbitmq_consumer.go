@@ -134,11 +134,15 @@ func (c *RabbitMQConsumer) consume(channel *amqp.Channel, queueName string, pref
 				if err := handler(d.Body); err != nil {
 					log.Printf("Error processing message: %v", err)
 					// Don't requeue on error - send to DLQ or drop
-					d.Nack(false, false) // false = don't requeue
+					if nackErr := d.Nack(false, false); nackErr != nil {
+						log.Printf("Failed to nack message: %v", nackErr)
+					}
 					log.Printf("Message rejected and NOT requeued (dropped)")
 				} else {
 					// Acknowledge successful processing
-					d.Ack(false)
+					if ackErr := d.Ack(false); ackErr != nil {
+						log.Printf("Failed to ack message: %v", ackErr)
+					}
 					log.Printf("Message processed successfully")
 				}
 			}(msg)
