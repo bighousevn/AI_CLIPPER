@@ -13,6 +13,7 @@ import { redirect } from "next/navigation";
 
 const NavHeader = () => {
     const { user, loading } = useAuth();
+    console.log(user);
 
     if (loading)
         return (
@@ -21,7 +22,7 @@ const NavHeader = () => {
             </div>
         );
 
-    if (!user) redirect("/login");
+    if (user === null) redirect("/login");
     return <header className="bg-background sticky top-0 z-10 flex justify-center border-b">
         <div className="container flex items-center justify-between px-4 py-2">
             <Link href="/dashboard" className="flex items-center">
