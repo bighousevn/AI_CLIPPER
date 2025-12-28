@@ -51,8 +51,6 @@ func (s *StripeService) CreateCheckoutSession(customerID, priceID string, succes
 		},
 		SuccessURL: stripe.String(successURL),
 		CancelURL:  stripe.String(cancelURL),
-		// Metadata is useful for webhook verification if needed,
-		// but Customer ID is usually enough to link back to user.
 	}
 
 	sess, err := session.New(params)

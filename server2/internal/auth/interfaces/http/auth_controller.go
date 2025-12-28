@@ -4,6 +4,7 @@ import (
 	"ai-clipper/server2/internal/auth/application"
 	_ "ai-clipper/server2/internal/httputil"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -70,7 +71,13 @@ func (h *AuthController) Login(c *gin.Context) {
 		h.presenter.RenderError(c, http.StatusUnauthorized, err)
 		return
 	}
-	c.SetCookie("refresh_token", res.RefreshToken, 3600*24*30, "/", "", false, true)
+	// c.SetCookie("refresh_token", res.RefreshToken, 3600*24*30, "/", "", false, true)
+	c.Header("Set-Cookie", fmt.Sprintf(
+		"refresh_token=%s; Path=/; Max-Age=%d; HttpOnly; Secure; SameSite=None",
+		res.RefreshToken,
+		3600*24*30,
+	))
+	// c.SetCookie("access_token", res.AccessToken, 3600*24*30, "/", "", false, true)
 	h.presenter.RenderSuccess(c, http.StatusOK, gin.H{"access_token": res.AccessToken})
 }
 
