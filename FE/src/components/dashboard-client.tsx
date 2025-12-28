@@ -53,7 +53,7 @@ export function DashboardClient({
     useEffect(() => {
         refetchClips();
         const token = localStorage.getItem("accessToken");
-        document.cookie = `access_token=${token}; path=/; samesite=lax;`;
+        document.cookie = `access_token=${token}; path=/; samesite=none; secure;`;
 
         const es = new EventSource(`${process.env.NEXT_PUBLIC_API_URL}/events`, {
             withCredentials: true,
